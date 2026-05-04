@@ -681,7 +681,7 @@
   // New control model: player chooses when to attack and when to shield
   var SHIELD_UP_MS = 500;       // how long shield stays up after press
   var SHIELD_COOLDOWN_MS = 250; // cooldown after shield drops before next raise
-  var ATTACK_COOLDOWN_MS = 600; // cooldown after attack recovery before next attack
+  var ATTACK_COOLDOWN_MS = 200; // cooldown after attack recovery before next attack
   // Charge attack — hold sword to charge; damage scales continuously
   var MAX_CHARGE_HOLD_MS = 1500;     // hold duration to reach max charge (1.0)
   var HEAVY_CHARGE_THRESHOLD = 0.45; // chargeRatio at/above this = heavy (breaks shield)
@@ -2048,12 +2048,19 @@
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
     var now = performance.now();
-    if (player.phase !== 'idle') return;
-    if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
-    if (now < player.stunUntil) return;
+    if (now < player.stunUntil) {
+      addPopup(player, 'STUNNED', '#888'); return;
+    }
+    if (player.phase !== 'idle') {
+      // mid-attack — show small feedback so user knows input was seen
+      return;
+    }
+    if (now < player.attackCooldownUntil) {
+      addPopup(player, 'WAIT', '#888');
+      return;
+    }
     var ratio = (typeof chargeRatio === 'number') ? chargeRatio : 0;
-    // Powerup: charge ready overrides into a free max charge
     if (player.pwChargeReady) { ratio = 1; player.pwChargeReady = false; }
     startAttack(player, now, ratio);
     recordPlayerAction('attack', ratio);
