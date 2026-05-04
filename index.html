@@ -209,6 +209,63 @@
     letter-spacing: 0.06em;
   }
 
+  /* ---------- Boss campaign list ---------- */
+  .boss-list {
+    display: flex; flex-direction: column; gap: 12px;
+    width: 380px; max-width: 92%;
+  }
+  .boss-card {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .boss-card.beaten { border-color: #62e878; }
+  .boss-card.locked { opacity: 0.55; }
+  .boss-card canvas { width: 64px; height: 78px; flex-shrink: 0; }
+  .boss-card .boss-info { flex: 1; min-width: 0; }
+  .boss-card .boss-name {
+    font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
+  }
+  .boss-card.beaten .boss-name::after { content: ' ✓'; color: #62e878; }
+  .boss-card .boss-blurb {
+    font-size: 12px; color: #aaa; margin-top: 4px; line-height: 1.4;
+  }
+  .boss-card .boss-meta {
+    font-size: 11px; color: #ffd34d; margin-top: 4px; letter-spacing: 0.04em;
+  }
+  .boss-card .boss-fight {
+    font: inherit; font-weight: 800; font-size: 13px;
+    padding: 8px 14px; border: 0; border-radius: 999px;
+    background: #ffd34d; color: #1a1300; cursor: pointer;
+    flex-shrink: 0;
+  }
+  .boss-card .boss-fight:disabled {
+    background: rgba(255,255,255,0.10); color: #777; cursor: default;
+  }
+
+  /* ---------- Friend code ---------- */
+  .friend-block {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 18px; background: rgba(255,255,255,0.04);
+    border-radius: 14px; min-width: 280px; max-width: 90%;
+  }
+  .friend-code {
+    font-weight: 900; font-size: 38px; letter-spacing: 0.18em;
+    color: #ffd34d;
+    text-shadow: 0 4px 0 #c08c00, 0 6px 16px rgba(255,200,77,0.3);
+  }
+  #friendInput {
+    font: inherit; font-weight: 900; font-size: 28px;
+    text-align: center; letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(0,0,0,0.3); color: #fff;
+    width: 200px;
+  }
+  #friendInput:focus { outline: 2px solid #ffd34d; }
+
   /* ---------- Daily challenges ---------- */
   .daily-list {
     display: flex; flex-direction: column; gap: 12px;
@@ -268,6 +325,12 @@
   .action-btn.sword {
     background: linear-gradient(160deg, #ffb070, #c44820);
     color: #fff;
+  }
+  .action-btn.step {
+    width: 72px; height: 72px;
+    background: linear-gradient(160deg, #b0b8c8, #5a6070);
+    color: #fff;
+    font-size: 30px; align-self: center;
   }
   .action-btn .cooldown-fill {
     position: absolute; left: 0; right: 0; bottom: 0;
@@ -471,10 +534,39 @@
   <div class="btn-row">
     <button class="btn" data-action="mode-ai">VS AI</button>
     <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
+    <button class="btn secondary" data-action="open-friend">PLAY FRIEND</button>
+    <button class="btn secondary" data-action="open-campaign">CAMPAIGN</button>
     <button class="btn secondary" data-action="open-skins">SKINS</button>
     <button class="btn secondary" data-action="open-dailies">DAILIES</button>
   </div>
   <button class="btn ghost" data-action="back-boot">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="campaign">
+  <h2 class="subtitle">CAMPAIGN</h2>
+  <p class="lead">Beat 5 boss duelists. Each fights nothing like the last.</p>
+  <div class="boss-list" id="bossList"></div>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="friend">
+  <h2 class="subtitle">PLAY WITH A FRIEND</h2>
+  <div class="friend-block">
+    <div class="small">YOUR CODE</div>
+    <div class="friend-code" id="friendMyCode">XXXX</div>
+    <div class="btn-row">
+      <button class="mini-btn" data-action="copy-code">COPY</button>
+      <button class="mini-btn" data-action="regen-code">NEW CODE</button>
+    </div>
+  </div>
+  <button class="btn" data-action="friend-host">WAIT FOR FRIEND</button>
+  <div class="small">— OR —</div>
+  <div class="friend-block">
+    <input id="friendInput" maxlength="4" placeholder="ABCD" spellcheck="false" autocomplete="off" />
+    <button class="btn secondary" data-action="friend-join">JOIN FRIEND</button>
+  </div>
+  <p class="lead" id="friendStatus" style="min-height:24px"></p>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
 
 <div class="screen hidden" data-screen="dailies">
@@ -545,6 +637,11 @@
     <div class="cooldown-fill" id="shieldCdFill"></div>
     <div class="label">SHIELD</div>
   </button>
+  <button class="action-btn step" id="stepBtn" data-action="action-step">
+    ←
+    <div class="cooldown-fill" id="stepCdFill"></div>
+    <div class="label">STEP</div>
+  </button>
   <button class="action-btn sword" id="swordBtn" data-action="action-sword">
     ⚔️
     <div class="cooldown-fill" id="swordCdFill"></div>
@@ -600,6 +697,11 @@
   var DODGE_HOLD_MS = 150;       // hold duration to convert shield press into dodge
   var DODGE_MS = 280;            // i-frame duration
   var DODGE_COOLDOWN_MS = 1500;
+  // Step-back / range — tap A/LEFT or STEP button to back out of light-attack range
+  var STEP_BACK_DURATION_MS = 800;
+  var STEP_BACK_COOLDOWN_MS = 1200;
+  var STEP_BACK_OFFSET_PX = 55;
+  var STEP_LERP_RATE = 0.18;     // per-frame easing toward target offset
 
   var LOBBY_ID = 'parry-of-ages-lobby-2026-v2';
   var MATCHMAKING_TIMEOUT_MS = 14000;
@@ -834,11 +936,64 @@
     return true;
   }
   function enemySkin() {
-    // Random skin for AI; actual opponent skin for online
     if (gameMode === 'online' && net.opponentSkin) return getSkin(net.opponentSkin);
     if (gameMode === 'tutorial') return getSkin('reaver');
-    var pool = [SKINS[1], SKINS[0], SKINS[2]]; // bias toward Reaver as the rival
+    if (gameMode === 'campaign' && currentBoss) return getSkin(currentBoss.skinId);
+    var pool = [SKINS[1], SKINS[0], SKINS[2]];
     return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // ---------- Boss Campaign ----------
+  var BOSSES = [
+    {
+      id: 'berserker', name: 'THE BERSERKER', skinId: 'reaver', hp: 130,
+      blurb: 'Charges nothing but heavy blows. Cannot block. Punish his openings.',
+      reward: 50,
+      brain: 'berserker'
+    },
+    {
+      id: 'ninja', name: 'THE NINJA', skinId: 'shadow', hp: 80,
+      blurb: 'Quick jabs, dodges constantly. Glass cannon — corner him fast.',
+      reward: 75,
+      brain: 'ninja'
+    },
+    {
+      id: 'turtle', name: 'THE TURTLE', skinId: 'phantom', hp: 110,
+      blurb: 'Shields almost every attack. Charge a heavy to break through.',
+      reward: 100,
+      brain: 'turtle'
+    },
+    {
+      id: 'echo', name: 'THE ECHO', skinId: 'apex', hp: 100,
+      blurb: 'Mirrors your last move back at you. Mix up your patterns.',
+      reward: 150,
+      brain: 'echo'
+    },
+    {
+      id: 'overlord', name: 'THE OVERLORD', skinId: 'celestial', hp: 150,
+      blurb: 'Master of all styles. Enrages below 50% HP — beware.',
+      reward: 250,
+      brain: 'overlord'
+    }
+  ];
+  var currentBoss = null;
+  function getBoss(id) {
+    for (var i = 0; i < BOSSES.length; i++) if (BOSSES[i].id === id) return BOSSES[i];
+    return null;
+  }
+  function isBossUnlocked(idx) {
+    if (idx === 0) return true;
+    var prev = BOSSES[idx - 1];
+    return (profile.campaignBeaten || []).indexOf(prev.id) !== -1;
+  }
+  function isBossBeaten(id) {
+    return (profile.campaignBeaten || []).indexOf(id) !== -1;
+  }
+
+  // Track player's last meaningful action for the Echo boss
+  var playerLastAction = null; // { type:'attack'|'shield'|'dodge'|'stepback', at, chargeRatio }
+  function recordPlayerAction(type, chargeRatio) {
+    playerLastAction = { type: type, at: performance.now(), chargeRatio: chargeRatio || 0 };
   }
 
   // ---------- Persistence ----------
@@ -863,6 +1018,8 @@
           skin: p.skin || 'knight',
           coins: typeof p.coins === 'number' ? p.coins : 0,
           purchasedSkins: Array.isArray(p.purchasedSkins) ? p.purchasedSkins : [],
+          campaignBeaten: Array.isArray(p.campaignBeaten) ? p.campaignBeaten : [],
+          friendCode: (typeof p.friendCode === 'string' && p.friendCode.length === 4) ? p.friendCode : makeFriendCode(),
           daily: (p.daily && typeof p.daily === 'object') ? p.daily : { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
           stats: {
             matches: (p.stats && p.stats.matches) || 0,
@@ -880,9 +1037,17 @@
       rp: 0, tutorialDone: false,
       username: makeDefaultUsername(), soundOn: true, skin: 'knight',
       coins: 0, purchasedSkins: [],
+      campaignBeaten: [], friendCode: makeFriendCode(),
       daily: { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
     };
+  }
+
+  function makeFriendCode() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // skip O/0/I/1 for clarity
+    var s = '';
+    for (var i = 0; i < 4; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return s;
   }
 
   function saveProfile() {
@@ -1205,6 +1370,11 @@
       // Tutorial counters
       heaviesThrown: 0,
       dodgesUsed: 0,
+      // Range / step-back
+      range: 0,                  // 0=close, 1=far
+      rangeUntil: 0,             // when far auto-returns to close
+      dashBackCooldownUntil: 0,
+      curXOffset: 0,             // smoothed visual offset
       // Stats
       parryCount: 0,
       superCount: 0,
@@ -1447,9 +1617,20 @@
         break;
       case 'powerup_grab':
         if (powerup) {
-          // 'side' from host's perspective: 'player' = host's player = our enemy here; 'enemy' = host's enemy = our player
           var grabberOnOurClient = msg.side === 'player' ? enemy : player;
           grantPowerup(grabberOnOurClient);
+        }
+        break;
+      case 'step_back':
+        if (enemy) triggerStepBack(enemy, now);
+        break;
+      case 'oor':
+        // Opponent says my attack went out of range
+        if (player && !player.strikeResolved) {
+          clearAttackerFallback(player);
+          player.strikeResolved = true;
+          addPopup(player, 'OUT OF RANGE', '#888');
+          playWhiff();
         }
         break;
       case 'parry':
@@ -1582,15 +1763,16 @@
       f.phaseStart = now;
       f.isHeavyAttack = false;
       if (f.side === 'player') {
-        // Player chooses when to attack — no auto-schedule, just set cooldown
         f.attackCooldownUntil = now + ATTACK_COOLDOWN_MS;
+        f.nextAttackAt = Infinity;
+      } else if (gameMode === 'campaign') {
+        // Boss brain decides next attack time
         f.nextAttackAt = Infinity;
       } else if (gameMode === 'ai') {
         f.nextAttackAt = now + ATTACK_INTERVAL_MS + (Math.random() - 0.5) * ATTACK_INTERVAL_JITTER_MS;
       } else if (gameMode === 'tutorial') {
         f.nextAttackAt = now + 2200;
       } else {
-        // online enemy: net-driven
         f.nextAttackAt = Infinity;
       }
     }
@@ -1634,6 +1816,14 @@
   function resolveStrike(attacker, now) {
     var defender = attacker.side === 'player' ? enemy : player;
     var dmg = attackDamage(attacker);
+
+    // OUT OF RANGE: defender stepped back; light attacks whiff (heavy still reaches)
+    if (defender.range === 1 && !attacker.isHeavyAttack) {
+      attacker.strikeResolved = true;
+      addPopup(attacker, 'OUT OF RANGE', '#888');
+      playWhiff();
+      return;
+    }
 
     // Dodge has highest priority — completely avoids damage from any attack
     if (defender.dodgeUntil > now) {
@@ -1703,6 +1893,146 @@
     if (t < 0) t = 0; if (t > 1) t = 1;
     return 0.35 + 0.40 * t;
   }
+
+  // ---------- Boss brains ----------
+  // Each boss controls enemy.nextAttackAt + chargeRatio + reactive defense.
+  function bossBrain(now) {
+    if (!currentBoss) return;
+    switch (currentBoss.brain) {
+      case 'berserker': bossBerserker(now); break;
+      case 'ninja':     bossNinja(now); break;
+      case 'turtle':    bossTurtle(now); break;
+      case 'echo':      bossEcho(now); break;
+      case 'overlord':  bossOverlord(now); break;
+    }
+  }
+
+  function bossScheduleAttack(now, minMs, maxMs) {
+    if (enemy.phase === 'idle' && enemy.nextAttackAt === Infinity) {
+      enemy.nextAttackAt = now + minMs + Math.random() * (maxMs - minMs);
+    }
+  }
+  function bossFireAttack(now, ratio) {
+    if (enemy.phase === 'idle' && now >= enemy.nextAttackAt) {
+      startAttack(enemy, now, ratio);
+    }
+  }
+
+  function bossBerserker(now) {
+    bossScheduleAttack(now, 1500, 2400);
+    var ratio = 0.7 + Math.random() * 0.3;
+    bossFireAttack(now, ratio);
+    // Berserker NEVER defends — no shield/dodge
+  }
+
+  function bossNinja(now) {
+    bossScheduleAttack(now, 700, 1400);
+    var ratio = Math.random() * 0.2; // quick jab
+    bossFireAttack(now, ratio);
+    // 70% dodge chance against player attacks
+    if (player.phase === 'windup' || player.phase === 'strike') {
+      if (!player.aiHasPlanned) {
+        player.aiHasPlanned = true;
+        player.aiWillDodgeThis = Math.random() < 0.70;
+        var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
+        player.aiShieldAt = strikeAt - (40 + Math.random() * 120);
+      }
+      if (player.aiWillDodgeThis && now >= player.aiShieldAt) {
+        if (now >= enemy.dodgeCooldownUntil) triggerDodge(enemy, now);
+        player.aiWillDodgeThis = false;
+      }
+    } else {
+      player.aiHasPlanned = false;
+    }
+  }
+
+  function bossTurtle(now) {
+    bossScheduleAttack(now, 1800, 2800);
+    var ratio = 0.4 + Math.random() * 0.2; // medium counter-attacks
+    bossFireAttack(now, ratio);
+    // 90% shield against player attacks
+    if (player.phase === 'windup' || player.phase === 'strike') {
+      if (!player.aiHasPlanned) {
+        player.aiHasPlanned = true;
+        player.aiWillShieldThis = Math.random() < 0.90;
+        var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
+        player.aiShieldAt = strikeAt - (60 + Math.random() * 180);
+      }
+      if (player.aiWillShieldThis && now >= player.aiShieldAt) {
+        if (now >= enemy.shieldCooldownUntil) raiseShield(enemy, now);
+        player.aiWillShieldThis = false;
+      }
+    } else {
+      player.aiHasPlanned = false;
+    }
+  }
+
+  function bossEcho(now) {
+    // Mirror player's last meaningful action after ~600ms
+    if (!enemy.echoActedAt) enemy.echoActedAt = 0;
+    bossScheduleAttack(now, 1100, 1800);
+    if (playerLastAction && (now - playerLastAction.at) > 600 && (now - playerLastAction.at) < 1000) {
+      var t = playerLastAction.type;
+      if (t === 'attack' && enemy.phase === 'idle' && now >= enemy.attackCooldownUntil) {
+        startAttack(enemy, now, playerLastAction.chargeRatio);
+        playerLastAction = null;
+      } else if (t === 'shield' && now >= enemy.shieldCooldownUntil) {
+        raiseShield(enemy, now);
+        playerLastAction = null;
+      } else if (t === 'dodge' && now >= enemy.dodgeCooldownUntil) {
+        triggerDodge(enemy, now);
+        playerLastAction = null;
+      }
+    }
+    // Default attacks if player idle / no recent action
+    var ratio = 0.3 + Math.random() * 0.4;
+    bossFireAttack(now, ratio);
+  }
+
+  function bossOverlord(now) {
+    var enraged = enemy.hp <= currentBoss.hp * 0.5;
+    var attackMin = enraged ? 900 : 1400;
+    var attackMax = enraged ? 1600 : 2400;
+    bossScheduleAttack(now, attackMin, attackMax);
+    var roll = Math.random();
+    var ratio;
+    if (enraged) {
+      // More heavies when enraged
+      if (roll < 0.35) ratio = Math.random() * 0.3;
+      else if (roll < 0.55) ratio = 0.4 + Math.random() * 0.2;
+      else ratio = 0.6 + Math.random() * 0.4;
+    } else {
+      // Balanced mix
+      if (roll < 0.50) ratio = Math.random() * 0.3;
+      else if (roll < 0.80) ratio = 0.3 + Math.random() * 0.3;
+      else ratio = 0.55 + Math.random() * 0.45;
+    }
+    bossFireAttack(now, ratio);
+    // Defense: mix of shield + dodge, more aggressive when enraged
+    if (player.phase === 'windup' || player.phase === 'strike') {
+      if (!player.aiHasPlanned) {
+        player.aiHasPlanned = true;
+        var defChance = enraged ? 0.65 : 0.45;
+        var willDefend = Math.random() < defChance;
+        // Bias dodge if player is heavy-charging (shield would break)
+        var dodgeBias = player.isHeavyAttack ? 0.75 : 0.30;
+        player.aiWillDodgeThis = willDefend && (Math.random() < dodgeBias);
+        player.aiWillShieldThis = willDefend && !player.aiWillDodgeThis;
+        var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
+        player.aiShieldAt = strikeAt - (60 + Math.random() * 220);
+      }
+      if (player.aiWillShieldThis && now >= player.aiShieldAt) {
+        if (now >= enemy.shieldCooldownUntil) raiseShield(enemy, now);
+        player.aiWillShieldThis = false;
+      }
+      if (player.aiWillDodgeThis && now >= player.aiShieldAt) {
+        if (now >= enemy.dodgeCooldownUntil) triggerDodge(enemy, now);
+        player.aiWillDodgeThis = false;
+      }
+    } else {
+      player.aiHasPlanned = false;
+    }
+  }
   function aiAttackInterval() {
     return 1500 + Math.random() * 1500; // 1.5–3.0 sec between attacks
   }
@@ -1720,6 +2050,7 @@
     // Powerup: charge ready overrides into a free max charge
     if (player.pwChargeReady) { ratio = 1; player.pwChargeReady = false; }
     startAttack(player, now, ratio);
+    recordPlayerAction('attack', ratio);
   }
 
   function tryPlayerShield() {
@@ -1730,6 +2061,7 @@
     if (player.shieldUpUntil > now) return;
     if (now < player.stunUntil) return;
     raiseShield(player, now);
+    recordPlayerAction('shield');
     if (gameMode === 'online') netSend({ type: 'shield_up' });
   }
 
@@ -1741,6 +2073,7 @@
     if (player.hp <= 0) return;
     if (now < player.stunUntil) return;
     triggerDodge(player, now);
+    recordPlayerAction('dodge');
     if (gameMode === 'online') netSend({ type: 'dodge' });
   }
 
@@ -1757,6 +2090,49 @@
     f.dodgeFlashAt = now;
     f.dodgesUsed = (f.dodgesUsed || 0) + 1;
     addPopup(f, 'DODGE', '#a0e8ff');
+  }
+
+  function tryPlayerStepBack() {
+    if (!player) return;
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (now < player.dashBackCooldownUntil) return;
+    if (player.range === 1) return; // already back
+    if (now < player.stunUntil) return;
+    triggerStepBack(player, now);
+    recordPlayerAction('stepback');
+    if (gameMode === 'online') netSend({ type: 'step_back' });
+  }
+
+  function triggerStepBack(f, now) {
+    f.range = 1;
+    f.rangeUntil = now + STEP_BACK_DURATION_MS;
+    f.dashBackCooldownUntil = f.rangeUntil + STEP_BACK_COOLDOWN_MS;
+    addPopup(f, 'BACK', '#a0e8ff');
+    // Dust kick sparks at feet
+    var p = getFighterPos(f);
+    var facing = f.side === 'player' ? 1 : -1;
+    for (var i = 0; i < 8; i++) {
+      sparks.push({
+        x: p.x + facing * 12, y: p.y + 38 + Math.random() * 6,
+        vx: facing * (0.05 + Math.random() * 0.15),
+        vy: -0.05 - Math.random() * 0.1,
+        gravity: 0.0006,
+        life: 280 + Math.random() * 180, max: 460,
+        color: '#a0a8b0', size: 1 + Math.random() * 2
+      });
+    }
+  }
+
+  function tickRange(now, dt) {
+    [player, enemy].forEach(function (f) {
+      if (!f) return;
+      // Auto-return from FAR to CLOSE when timer expires
+      if (f.range === 1 && now >= f.rangeUntil) f.range = 0;
+      var targetOffset = f.range === 1 ? STEP_BACK_OFFSET_PX : 0;
+      var diff = targetOffset - (f.curXOffset || 0);
+      f.curXOffset = (f.curXOffset || 0) + diff * STEP_LERP_RATE;
+    });
   }
 
   // ---------- Parry resolution ----------
@@ -1800,6 +2176,15 @@
 
   function resolveStrikeOnline(attacker, now) {
     var dmg = attackDamage(attacker);
+
+    // OUT OF RANGE check
+    if (player.range === 1 && !attacker.isHeavyAttack) {
+      attacker.strikeResolved = true;
+      addPopup(attacker, 'OUT OF RANGE', '#888');
+      playWhiff();
+      netSend({ type: 'oor' });
+      return;
+    }
 
     // Dodge first
     if (player.dodgeUntil > now) {
@@ -1919,8 +2304,10 @@
   // ---------- Effects ----------
   function getFighterPos(f) {
     var groundY = cssH * 0.70;
-    var x = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
-    return { x: x, y: groundY };
+    var baseX = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
+    var facing = f.side === 'player' ? 1 : -1;
+    // Step-back pulls fighter AWAY from center (negative facing direction)
+    return { x: baseX - facing * (f.curXOffset || 0), y: groundY };
   }
 
   function shieldImpactPos(defender) {
@@ -2055,6 +2442,9 @@
       holdState.shieldKey = true;
       e.preventDefault();
       onShieldPress();
+    } else if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+      e.preventDefault();
+      tryPlayerStepBack();
     }
   });
   window.addEventListener('keyup', function (e) {
@@ -2085,6 +2475,16 @@
   }
   bindActionBtn('shieldBtn', onShieldPress, onShieldRelease);
   bindActionBtn('swordBtn', onSwordPress, onSwordRelease);
+  // Step button is a momentary tap; no hold semantics
+  (function () {
+    var el = document.getElementById('stepBtn');
+    if (!el) return;
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      ensureAudio();
+      tryPlayerStepBack();
+    }, { passive: false });
+  })();
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
@@ -2109,6 +2509,8 @@
         if (f.dodgeFlashAt) f.dodgeFlashAt += delta;
         if (f.stunUntil) f.stunUntil += delta;
         if (f.pwRageUntil) f.pwRageUntil += delta;
+        if (f.rangeUntil) f.rangeUntil += delta;
+        if (f.dashBackCooldownUntil) f.dashBackCooldownUntil += delta;
       });
       pendingAttackerFallbacks.forEach(function (p) { p.deadline += delta; });
       pausedAt = 0;
@@ -2147,6 +2549,11 @@
 
     // Poll hold triggers (dodge if shield held past threshold)
     pollHoldTriggers(now);
+
+    // Boss campaign AI dispatch (separate brain per boss)
+    if (gameMode === 'campaign' && currentBoss && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
+      bossBrain(now);
+    }
 
     // AI defensive choices (AI mode only) — reactive to player attacks
     if (gameMode === 'ai' && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
@@ -2188,6 +2595,7 @@
     // Hazard scheduling + resolution
     tickHazards(now);
     tickPowerup(now);
+    tickRange(now, dt);
 
     // Tutorial controllers
     if (gameMode === 'tutorial') {
@@ -3417,15 +3825,24 @@
     // Assign skins
     player.skin = getSkin(profile.skin);
     enemy.skin = enemySkin();
+    // Boss campaign: override enemy HP and use boss skin
+    if (mode === 'campaign' && currentBoss) {
+      enemy.hp = currentBoss.hp;
+      enemy.username = currentBoss.name;
+      enemy.skin = getSkin(currentBoss.skinId);
+    }
     // Player never auto-attacks in any mode now (player-controlled)
     player.nextAttackAt = Infinity;
     if (mode === 'ai') {
       enemy.nextAttackAt = now + 1200;
     } else if (mode === 'tutorial') {
       enemy.nextAttackAt = now + 2000;
+    } else if (mode === 'campaign') {
+      enemy.nextAttackAt = Infinity; // boss brain controls
     } else {
       enemy.nextAttackAt = Infinity; // net-driven
     }
+    playerLastAction = null;
     flashes.length = 0; popups.length = 0; sparks.length = 0;
     pendingAttackerFallbacks.length = 0;
     hazards.length = 0; powerup = null;
@@ -3490,12 +3907,16 @@
 
     if (isTutorial) {
       titleEl.textContent = 'TUTORIAL COMPLETE';
+    } else if (gameMode === 'campaign' && currentBoss) {
+      titleEl.textContent = playerWon ? (currentBoss.name + ' DOWN') : (currentBoss.name + ' WINS');
     } else {
       titleEl.textContent = playerWon ? 'VICTORY' : 'DEFEAT';
     }
     var msg = playerWon ? 'Clean duel.' : 'Watch the rhythm. Tap the instant before the strike.';
     if (gameMode === 'online' && (enemy && enemy.username)) {
       msg = (playerWon ? 'You took down ' : 'Beaten by ') + enemy.username + '.';
+    } else if (gameMode === 'campaign' && currentBoss) {
+      msg = playerWon ? 'Boss defeated.' : 'Try again with a different approach.';
     }
     if (endReason) msg = endReason;
     msgEl.textContent = msg;
@@ -3520,6 +3941,7 @@
     // Commit lifetime stats and award rank/coins for non-tutorial matches
     var awarded = null;
     var oldRank = computeRank(profile.rp);
+    var campaignReward = 0; var campaignFirstClear = false;
     if (!isTutorial && (gameMode === 'ai' || gameMode === 'online')) {
       commitMatchStats();
       if (playerWon) profile.stats.wins += 1;
@@ -3534,6 +3956,24 @@
       }
       tickChallenge('maxStreak', player ? Math.max(player.parryCount, player.parryStreak) : 0, true);
       if (awarded && awarded.coinDelta > 0) tickChallenge('coinsEarned', awarded.coinDelta);
+      saveProfile();
+    } else if (!isTutorial && gameMode === 'campaign' && currentBoss) {
+      commitMatchStats();
+      if (playerWon) {
+        profile.stats.wins += 1;
+        var alreadyBeaten = isBossBeaten(currentBoss.id);
+        if (!alreadyBeaten) {
+          profile.campaignBeaten = (profile.campaignBeaten || []).concat([currentBoss.id]);
+          campaignReward = currentBoss.reward;
+          campaignFirstClear = true;
+        } else {
+          campaignReward = 10;
+        }
+        profile.coins += campaignReward;
+        if (campaignReward > 0) tickChallenge('coinsEarned', campaignReward);
+      }
+      tickChallenge('matches', 1);
+      if (playerWon) tickChallenge('wins', 1);
       saveProfile();
     }
 
@@ -3596,7 +4036,42 @@
 
     rematchBtn.textContent = (gameMode === 'online' && net.connected) ? 'REMATCH' : 'PLAY AGAIN';
     if (isTutorial) rematchBtn.textContent = 'CONTINUE';
+    if (gameMode === 'campaign') {
+      // If just unlocked next boss, show NEXT BOSS button + reward popup
+      if (campaignFirstClear && campaignReward > 0) {
+        // Reuse the coin delta element to show campaign reward
+        var coinE2 = document.getElementById('goCoinDelta');
+        coinE2.textContent = '+' + campaignReward + ' 🪙 FIRST CLEAR! (' + profile.coins + ' total)';
+        coinE2.className = 'coin-delta up';
+      } else if (playerWon && campaignReward > 0) {
+        var coinE3 = document.getElementById('goCoinDelta');
+        coinE3.textContent = '+' + campaignReward + ' 🪙 (' + profile.coins + ' total)';
+        coinE3.className = 'coin-delta up';
+      }
+      // If next boss now available, swap rematch text → "NEXT BOSS"
+      var idx = -1;
+      for (var bi = 0; bi < BOSSES.length; bi++) if (BOSSES[bi].id === currentBoss.id) { idx = bi; break; }
+      if (playerWon && idx >= 0 && idx + 1 < BOSSES.length && isBossUnlocked(idx + 1)) {
+        rematchBtn.textContent = 'NEXT BOSS →';
+        rematchBtn.setAttribute('data-action', 'next-boss');
+      } else {
+        rematchBtn.setAttribute('data-action', 'go-rematch');
+      }
+    } else {
+      rematchBtn.setAttribute('data-action', 'go-rematch');
+    }
     showScreen('gameover');
+  }
+
+  function nextBoss() {
+    if (!currentBoss) return;
+    var idx = -1;
+    for (var i = 0; i < BOSSES.length; i++) if (BOSSES[i].id === currentBoss.id) { idx = i; break; }
+    if (idx >= 0 && idx + 1 < BOSSES.length) {
+      startBossMatch(BOSSES[idx + 1].id);
+    } else {
+      goToMode();
+    }
   }
 
   function hideGameUi() {
@@ -3634,6 +4109,127 @@
       c.addEventListener('click', function () { pendingArenaChoice = a; renderArenaPicker(); });
       row.appendChild(c);
     });
+  }
+
+  function openCampaign() {
+    var list = document.getElementById('bossList');
+    list.innerHTML = '';
+    BOSSES.forEach(function (b, i) {
+      var unlocked = isBossUnlocked(i);
+      var beaten = isBossBeaten(b.id);
+      var card = document.createElement('div');
+      card.className = 'boss-card' + (unlocked ? '' : ' locked') + (beaten ? ' beaten' : '');
+      var btnLabel = beaten ? 'REPLAY' : (unlocked ? 'FIGHT' : 'LOCKED');
+      var rewardLabel = beaten ? '+10 🪙 (replay)' : '+' + b.reward + ' 🪙 first clear';
+      card.innerHTML =
+        '<canvas width="64" height="78"></canvas>' +
+        '<div class="boss-info">' +
+          '<div class="boss-name">' + b.name + '</div>' +
+          '<div class="boss-blurb">' + b.blurb + '</div>' +
+          '<div class="boss-meta">HP ' + b.hp + ' · ' + rewardLabel + '</div>' +
+        '</div>' +
+        '<button class="boss-fight"' + (unlocked ? '' : ' disabled') + '>' + btnLabel + '</button>';
+      var cv = card.querySelector('canvas');
+      drawSkinPreview(cv, getSkin(b.skinId));
+      var btn = card.querySelector('button');
+      if (unlocked) btn.addEventListener('click', function () { startBossMatch(b.id); });
+      list.appendChild(card);
+    });
+    showScreen('campaign');
+  }
+
+  function startBossMatch(bossId) {
+    currentBoss = getBoss(bossId);
+    if (!currentBoss) return;
+    startMatch('campaign');
+  }
+
+  function openFriend() {
+    var codeEl = document.getElementById('friendMyCode');
+    codeEl.textContent = profile.friendCode;
+    var statusEl = document.getElementById('friendStatus');
+    statusEl.textContent = '';
+    var input = document.getElementById('friendInput');
+    if (input) input.value = '';
+    showScreen('friend');
+  }
+
+  function setFriendStatus(msg) {
+    var el = document.getElementById('friendStatus');
+    if (el) el.textContent = msg;
+  }
+
+  function friendHost() {
+    if (typeof Peer === 'undefined') { setFriendStatus('Network library failed to load.'); return; }
+    netCleanup();
+    setFriendStatus('Waiting for ' + profile.friendCode + '...');
+    var hostPeerId = 'parry-friend-' + profile.friendCode;
+    net.peer = new Peer(hostPeerId, { debug: 0 });
+    net.peer.on('open', function () { net.isHost = true; });
+    net.peer.on('connection', function (incoming) {
+      if (net.connected) { try { incoming.close(); } catch (e) {} return; }
+      incoming.on('open', function () {
+        if (net.connected) { try { incoming.close(); } catch (e) {} return; }
+        wireConnection(incoming);
+        setFriendStatus('Friend joined! Starting...');
+        gameState = STATE_MATCHMAKING;
+        setTimeout(function () { if (net.connected) startMatch('online'); }, 600);
+      });
+    });
+    net.peer.on('error', function (err) {
+      if (err && err.type === 'unavailable-id') {
+        setFriendStatus('Code already in use. Try NEW CODE or have your friend join you instead.');
+      } else {
+        setFriendStatus('Connection error: ' + (err && err.message ? err.message : 'unknown'));
+      }
+    });
+  }
+
+  function friendJoin() {
+    if (typeof Peer === 'undefined') { setFriendStatus('Network library failed to load.'); return; }
+    var input = document.getElementById('friendInput');
+    var code = (input.value || '').trim().toUpperCase();
+    if (code.length !== 4) { setFriendStatus('Enter a 4-character code.'); return; }
+    netCleanup();
+    setFriendStatus('Connecting to ' + code + '...');
+    net.peer = new Peer({ debug: 0 });
+    net.peer.on('open', function () {
+      var c = net.peer.connect('parry-friend-' + code, { reliable: true });
+      var opened = false;
+      c.on('open', function () {
+        opened = true;
+        net.isHost = false;
+        wireConnection(c);
+        setFriendStatus('Connected! Starting...');
+        gameState = STATE_MATCHMAKING;
+        setTimeout(function () { if (net.connected) startMatch('online'); }, 600);
+      });
+      c.on('error', function () {
+        if (!opened) setFriendStatus('Could not reach friend. Make sure they pressed WAIT FOR FRIEND.');
+      });
+      setTimeout(function () {
+        if (!opened) setFriendStatus('Timeout. Have your friend press WAIT FOR FRIEND first.');
+      }, 8000);
+    });
+    net.peer.on('error', function (err) {
+      if (err && err.type === 'peer-unavailable') {
+        setFriendStatus('No friend found with code ' + code + '. They must press WAIT FOR FRIEND first.');
+      } else {
+        setFriendStatus('Error: ' + (err && err.message ? err.message : 'unknown'));
+      }
+    });
+  }
+
+  function copyFriendCode() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(profile.friendCode).then(function () {
+        setFriendStatus('Code copied to clipboard!');
+      }, function () {
+        setFriendStatus('Could not copy — select and copy manually.');
+      });
+    } else {
+      setFriendStatus('Clipboard not supported — copy ' + profile.friendCode + ' manually.');
+    }
   }
 
   function openSkins() {
@@ -3837,6 +4433,8 @@
       case 'go-rematch':
         if (gameMode === 'tutorial') {
           goToMode();
+        } else if (gameMode === 'campaign' && currentBoss) {
+          startBossMatch(currentBoss.id);
         } else if (gameMode === 'online' && net.connected) {
           netCleanup();
           startMatchmaking();
@@ -3862,6 +4460,29 @@
         break;
       case 'open-dailies':
         openDailies();
+        break;
+      case 'open-campaign':
+        openCampaign();
+        break;
+      case 'open-friend':
+        openFriend();
+        break;
+      case 'friend-host':
+        friendHost();
+        break;
+      case 'friend-join':
+        friendJoin();
+        break;
+      case 'copy-code':
+        copyFriendCode();
+        break;
+      case 'regen-code':
+        profile.friendCode = makeFriendCode();
+        saveProfile();
+        document.getElementById('friendMyCode').textContent = profile.friendCode;
+        break;
+      case 'next-boss':
+        nextBoss();
         break;
       case 'back-mode':
         goToMode();
