@@ -4644,10 +4644,24 @@
     drawOffhand(ctx, shieldGlow, s);
     ctx.restore();
 
-    // ---- Main arm with sword ----
+    // ---- Main arm with weapon ----
+    // Animation envelope varies by weapon style:
+    //   sword/scythe/katana → big arc swing
+    //   staff → small forward thrust (no arc)
+    //   bow → mostly static, slight draw-and-release
+    var weaponStyleArm = (s && s.weaponStyle) || 'sword';
     var armAngle = 0;
-    var maxPullback = f.isHeavyAttack ? -1.7 : -1.2;
-    var maxFollowthrough = f.isHeavyAttack ? 2.0 : 1.4;
+    var maxPullback, maxFollowthrough;
+    if (weaponStyleArm === 'staff') {
+      maxPullback = -0.25;
+      maxFollowthrough = 0.35;
+    } else if (weaponStyleArm === 'bow') {
+      maxPullback = -0.15;
+      maxFollowthrough = 0.05;
+    } else {
+      maxPullback = f.isHeavyAttack ? -1.7 : -1.2;
+      maxFollowthrough = f.isHeavyAttack ? 2.0 : 1.4;
+    }
     if (f.phase === 'windup') {
       var tw = (now - f.phaseStart) / attackWindupMs(f);
       if (tw > 1) tw = 1;
