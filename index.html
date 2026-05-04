@@ -569,6 +569,8 @@
     <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
     <button class="btn secondary" data-action="open-friend">PLAY FRIEND</button>
     <button class="btn secondary" data-action="open-campaign">CAMPAIGN</button>
+    <button class="btn secondary" data-action="mode-survival">SURVIVAL</button>
+    <button class="btn secondary" data-action="mode-local">LOCAL 2P</button>
     <button class="btn secondary" data-action="open-skins">SKINS</button>
     <button class="btn secondary" data-action="open-dailies">DAILIES</button>
   </div>
@@ -662,6 +664,7 @@
   <div class="btn-row">
     <button class="btn" data-action="go-rematch" id="goRematchBtn">PLAY AGAIN</button>
     <button class="btn secondary" data-action="go-menu">MAIN MENU</button>
+    <button class="btn secondary" data-action="save-snapshot">SAVE CLIP</button>
   </div>
 </div>
 
@@ -1408,6 +1411,193 @@
     }
   );
 
+  // ===== ULTRA-RARE BUFF SKINS — 3 per type (2 expensive coin, 1 challenge unlock) =====
+  // Knight
+  SKINS.push(
+    {
+      id: 'k_ironfang', type: 'knight', name: 'IRONFANG', unlockType: 'coin', cost: 3000,
+      baseColor: '#888090', darkColor: '#3a3038',
+      trim: '#1a1518', capeColor: '#2a2528', capeColorDark: '#10080c',
+      helmetColor: '#3a3038', helmetRim: '#1a1518',
+      plumeStyle: 'horns', plumeColor: '#cc4030',
+      weaponStyle: 'sword', offhandStyle: 'shield',
+      swordBlade: '#e8e8f0', swordGuard: '#3a3038', swordGrip: '#1a1518', swordPommel: '#cc4030',
+      shieldFace: '#1a1518', shieldRim: '#cc4030', shieldBoss: '#e8e8f0', shieldEmblem: 'fang',
+      buff: { dmgMult: 1.20, hpBonus: 15 }
+    },
+    {
+      id: 'k_dragonlord', type: 'knight', name: 'DRAGONLORD', unlockType: 'coin', cost: 5000,
+      baseColor: '#700810', darkColor: '#280008',
+      trim: '#080000', capeColor: '#400a14', capeColorDark: '#1a0508',
+      helmetColor: '#280008', helmetRim: '#080000',
+      plumeStyle: 'horns', plumeColor: '#ffaa30',
+      weaponStyle: 'sword', offhandStyle: 'shield',
+      swordBlade: '#ff8060', swordGuard: '#700810', swordGrip: '#080000', swordPommel: '#ffaa30',
+      shieldFace: '#280008', shieldRim: '#ffaa30', shieldBoss: '#ff8060', shieldEmblem: 'fang',
+      buff: { dmgMult: 1.30, lifesteal: 0.08 }
+    },
+    {
+      id: 'k_avatar', type: 'knight', name: 'AVATAR', unlockType: 'challenge',
+      challengeId: 'beat_all_bosses', challengeText: 'Beat all 5 campaign bosses',
+      baseColor: '#fff8d8', darkColor: '#cca860',
+      trim: '#5a4818', capeColor: '#fff088', capeColorDark: '#cca860',
+      helmetColor: '#cca860', helmetRim: '#5a4818',
+      plumeStyle: 'crown', plumeColor: '#fffff0',
+      weaponStyle: 'sword', offhandStyle: 'shield',
+      swordBlade: '#fffff0', swordGuard: '#fff088', swordGrip: '#5a4818', swordPommel: '#fffff0',
+      shieldFace: '#5a4818', shieldRim: '#fffff0', shieldBoss: '#fff088', shieldEmblem: 'sun',
+      buff: { dmgMult: 1.25, hpBonus: 25, lifesteal: 0.05 }
+    }
+  );
+  // Wizard
+  SKINS.push(
+    {
+      id: 'wiz_arcanist', type: 'wizard', name: 'ARCANIST', unlockType: 'coin', cost: 3000,
+      baseColor: '#3a2868', darkColor: '#180a30',
+      trim: '#080418', capeColor: '#180a30', capeColorDark: '#080418',
+      helmetColor: '#180a30', helmetRim: '#080418',
+      plumeStyle: 'wizardHat', plumeColor: '#a880ff',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#c8a0ff', swordGuard: '#3a2868', swordGrip: '#080418', swordPommel: '#a880ff',
+      shieldFace: '#180a30', shieldRim: '#a880ff', shieldBoss: '#c8a0ff', shieldEmblem: 'eye',
+      buff: { dmgMult: 1.20, speedMult: 0.85 }
+    },
+    {
+      id: 'wiz_timelord', type: 'wizard', name: 'TIME LORD', unlockType: 'coin', cost: 5000,
+      baseColor: '#dcecf4', darkColor: '#7090b0',
+      trim: '#3a4858', capeColor: '#88a8c8', capeColorDark: '#3a4858',
+      helmetColor: '#7090b0', helmetRim: '#3a4858',
+      plumeStyle: 'crown', plumeColor: '#88e0ff',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#dcf4ff', swordGuard: '#7090b0', swordGrip: '#3a4858', swordPommel: '#88e0ff',
+      shieldFace: '#3a4858', shieldRim: '#dcf4ff', shieldBoss: '#88e0ff', shieldEmblem: 'cross',
+      buff: { dmgMult: 1.25, speedMult: 0.75 }
+    },
+    {
+      id: 'wiz_archwiz', type: 'wizard', name: 'ARCHWIZARD', unlockType: 'challenge',
+      challengeId: 'wins_25_wizard', challengeText: 'Win 25 matches as Wizard',
+      baseColor: '#fff088', darkColor: '#cca860',
+      trim: '#5a4818', capeColor: '#a06030', capeColorDark: '#5a3018',
+      helmetColor: '#cca860', helmetRim: '#5a4818',
+      plumeStyle: 'crown', plumeColor: '#fff8c8',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#fffff0', swordGuard: '#cca860', swordGrip: '#5a4818', swordPommel: '#fff088',
+      shieldFace: '#5a4818', shieldRim: '#fffff0', shieldBoss: '#fff088', shieldEmblem: 'sun',
+      buff: { dmgMult: 1.30, hpBonus: 15, speedMult: 0.85 }
+    }
+  );
+  // Ranger
+  SKINS.push(
+    {
+      id: 'rgr_heart', type: 'ranger', name: 'HEARTSEEKER', unlockType: 'coin', cost: 3000,
+      baseColor: '#a82820', darkColor: '#5a0808',
+      trim: '#1a0000', capeColor: '#400a14', capeColorDark: '#1a0508',
+      helmetColor: '#5a0808', helmetRim: '#1a0000',
+      plumeStyle: 'rangerCap', plumeColor: '#ff5050',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#ff5050', swordGuard: '#a82820', swordGrip: '#1a0000', swordPommel: '#ff5050',
+      shieldFace: '#1a0000', shieldRim: '#ff5050', shieldBoss: '#ff8080', shieldEmblem: 'fang',
+      buff: { dmgMult: 1.30, speedMult: 0.85 }
+    },
+    {
+      id: 'rgr_deathwatch', type: 'ranger', name: 'DEATHWATCH', unlockType: 'coin', cost: 5000,
+      baseColor: '#1a1820', darkColor: '#080608',
+      trim: '#020204', capeColor: '#0a0a10', capeColorDark: '#020204',
+      helmetColor: '#080608', helmetRim: '#000000',
+      plumeStyle: 'cowl', plumeColor: '#a0c0ff',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#dcf4ff', swordGuard: '#1a1820', swordGrip: '#000000', swordPommel: '#a0c0ff',
+      shieldFace: '#020204', shieldRim: '#a0c0ff', shieldBoss: '#dcf4ff', shieldEmblem: 'eye',
+      buff: { dmgMult: 1.40, speedMult: 0.80 }
+    },
+    {
+      id: 'rgr_ghost', type: 'ranger', name: 'GHOST RANGER', unlockType: 'challenge',
+      challengeId: 'perfect_wins_5', challengeText: 'Win 5 matches without taking a single hit',
+      baseColor: '#dcfff0', darkColor: '#88c8a8',
+      trim: '#3a6858', capeColor: '#88c8a8', capeColorDark: '#3a6858',
+      helmetColor: '#88c8a8', helmetRim: '#3a6858',
+      plumeStyle: 'feather', plumeColor: '#dcfff0',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#ffffff', swordGuard: '#88c8a8', swordGrip: '#3a6858', swordPommel: '#dcfff0',
+      shieldFace: '#3a6858', shieldRim: '#dcfff0', shieldBoss: '#ffffff', shieldEmblem: 'leaf',
+      buff: { dmgMult: 1.50, speedMult: 0.70, hpBonus: 10 }
+    }
+  );
+  // Necromancer
+  SKINS.push(
+    {
+      id: 'nec_bone2', type: 'necromancer', name: 'BONELORD II', unlockType: 'coin', cost: 3000,
+      baseColor: '#2a2820', darkColor: '#0a0808',
+      trim: '#020204', capeColor: '#0a0808', capeColorDark: '#020204',
+      helmetColor: '#0a0808', helmetRim: '#000000',
+      plumeStyle: 'boneCrown', plumeColor: '#fffff0',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#ffffff', swordGuard: '#2a2820', swordGrip: '#000000', swordPommel: '#fffff0',
+      shieldFace: '#020204', shieldRim: '#fffff0', shieldBoss: '#ffffff', shieldEmblem: 'fang',
+      buff: { dmgMult: 1.20, hpBonus: 20 }
+    },
+    {
+      id: 'nec_soulreaver', type: 'necromancer', name: 'SOULREAVER', unlockType: 'coin', cost: 5000,
+      baseColor: '#4a8050', darkColor: '#1a4020',
+      trim: '#0a1808', capeColor: '#1a3010', capeColorDark: '#080a04',
+      helmetColor: '#1a3010', helmetRim: '#0a1808',
+      plumeStyle: 'horns', plumeColor: '#80ffa0',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#80ffa0', swordGuard: '#1a4020', swordGrip: '#080a04', swordPommel: '#80ffa0',
+      shieldFace: '#0a1808', shieldRim: '#80ffa0', shieldBoss: '#a0ffc0', shieldEmblem: 'eye',
+      buff: { dmgMult: 1.35, lifesteal: 0.12 }
+    },
+    {
+      id: 'nec_deathlord', type: 'necromancer', name: 'DEATH LORD', unlockType: 'challenge',
+      challengeId: 'reach_diamond', challengeText: 'Reach Diamond rank',
+      baseColor: '#400850', darkColor: '#180020',
+      trim: '#080010', capeColor: '#180030', capeColorDark: '#080010',
+      helmetColor: '#180030', helmetRim: '#cca860',
+      plumeStyle: 'crown', plumeColor: '#fff088',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#fff088', swordGuard: '#cca860', swordGrip: '#080010', swordPommel: '#fff088',
+      shieldFace: '#180030', shieldRim: '#fff088', shieldBoss: '#fff8c8', shieldEmblem: 'sun',
+      buff: { dmgMult: 1.40, hpBonus: 20, lifesteal: 0.10 }
+    }
+  );
+  // Samurai
+  SKINS.push(
+    {
+      id: 'sam_iaido', type: 'samurai', name: 'IAIDO', unlockType: 'coin', cost: 3000,
+      baseColor: '#80a0a8', darkColor: '#3a5868',
+      trim: '#152a38', capeColor: '#3a5868', capeColorDark: '#152a38',
+      helmetColor: '#3a5868', helmetRim: '#152a38',
+      plumeStyle: 'topknot', plumeColor: '#1a0e08',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#e8f0f8', swordGuard: '#3a5868', swordGrip: '#152a38', swordPommel: '#80a0a8',
+      shieldFace: '#152a38', shieldRim: '#80a0a8', shieldBoss: '#e8f0f8', shieldEmblem: 'cross',
+      buff: { dmgMult: 1.25, speedMult: 0.80 }
+    },
+    {
+      id: 'sam_bushido', type: 'samurai', name: 'BUSHIDO', unlockType: 'coin', cost: 5000,
+      baseColor: '#ffa030', darkColor: '#a05818',
+      trim: '#5a2808', capeColor: '#a05818', capeColorDark: '#5a2808',
+      helmetColor: '#a05818', helmetRim: '#5a2808',
+      plumeStyle: 'crown', plumeColor: '#fff088',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#fff088', swordGuard: '#a05818', swordGrip: '#5a2808', swordPommel: '#ffa030',
+      shieldFace: '#5a2808', shieldRim: '#ffa030', shieldBoss: '#fff088', shieldEmblem: 'sun',
+      buff: { dmgMult: 1.35, speedMult: 0.75 }
+    },
+    {
+      id: 'sam_blade', type: 'samurai', name: 'BLADESMASTER', unlockType: 'challenge',
+      challengeId: 'streak_10', challengeText: 'Hit a 10-parry streak in a single match',
+      baseColor: '#cc1010', darkColor: '#5a0808',
+      trim: '#1a0000', capeColor: '#5a0a14', capeColorDark: '#1a0508',
+      helmetColor: '#5a0808', helmetRim: '#1a0000',
+      plumeStyle: 'horns', plumeColor: '#ffd060',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#ffd060', swordGuard: '#5a0808', swordGrip: '#1a0000', swordPommel: '#cc1010',
+      shieldFace: '#1a0000', shieldRim: '#ffd060', shieldBoss: '#ff4040', shieldEmblem: 'fang',
+      buff: { dmgMult: 1.45, speedMult: 0.65, hpBonus: 10 }
+    }
+  );
+
   function getSkin(id) {
     for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
     return SKINS[0];
@@ -1425,6 +1615,10 @@
   function typeStats(f) {
     if (f && f.skin && TYPE_STATS[f.skin.type]) return TYPE_STATS[f.skin.type];
     return TYPE_STATS.knight;
+  }
+  function skinBuff(f) {
+    if (f && f.skin && f.skin.buff) return f.skin.buff;
+    return {};
   }
 
   // ---------- Arenas ----------
@@ -1461,6 +1655,25 @@
     }
     if (skin.unlockType === 'coin') {
       return (profile.purchasedSkins || []).indexOf(skin.id) !== -1;
+    }
+    if (skin.unlockType === 'challenge') {
+      return isChallengeMet(skin.challengeId);
+    }
+    return false;
+  }
+  function isChallengeMet(id) {
+    var p = profile;
+    switch (id) {
+      case 'beat_all_bosses':
+        return (p.campaignBeaten || []).length >= 5;
+      case 'wins_25_wizard':
+        return ((p.classWins && p.classWins.wizard) || 0) >= 25;
+      case 'perfect_wins_5':
+        return (p.perfectWins || 0) >= 5;
+      case 'reach_diamond':
+        return computeRank(p.rp).tierIndex >= 4;
+      case 'streak_10':
+        return (p.maxStreakEver || 0) >= 10;
     }
     return false;
   }
@@ -1568,6 +1781,10 @@
           coins: typeof p.coins === 'number' ? p.coins : 0,
           purchasedSkins: Array.isArray(p.purchasedSkins) ? p.purchasedSkins : [],
           campaignBeaten: Array.isArray(p.campaignBeaten) ? p.campaignBeaten : [],
+          classWins: (p.classWins && typeof p.classWins === 'object') ? p.classWins : { knight: 0, wizard: 0, ranger: 0, necromancer: 0, samurai: 0 },
+          perfectWins: typeof p.perfectWins === 'number' ? p.perfectWins : 0,
+          maxStreakEver: typeof p.maxStreakEver === 'number' ? p.maxStreakEver : 0,
+          survivalBest: typeof p.survivalBest === 'number' ? p.survivalBest : 0,
           friendCode: (typeof p.friendCode === 'string' && p.friendCode.length === 4) ? p.friendCode : makeFriendCode(),
           daily: (p.daily && typeof p.daily === 'object') ? p.daily : { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
           stats: {
@@ -1587,6 +1804,8 @@
       username: makeDefaultUsername(), soundOn: true, skin: 'knight',
       coins: 0, purchasedSkins: [],
       campaignBeaten: [], friendCode: makeFriendCode(),
+      classWins: { knight: 0, wizard: 0, ranger: 0, necromancer: 0, samurai: 0 },
+      perfectWins: 0, maxStreakEver: 0, survivalBest: 0,
       daily: { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
     };
@@ -1925,6 +2144,12 @@
       rangeUntil: 0,             // when far auto-returns to close
       dashBackCooldownUntil: 0,
       curXOffset: 0,             // smoothed visual offset
+      // Status effects
+      burnUntil: 0,
+      poisonUntil: 0,
+      bleedUntil: 0,
+      slowUntil: 0,
+      lastStatusTickAt: 0
       // Stats
       parryCount: 0,
       superCount: 0,
@@ -2255,17 +2480,18 @@
   function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
   function attackDamage(f) {
     var base = lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0);
-    return Math.round(base * typeStats(f).dmg);
+    var dmgMult = typeStats(f).dmg * (skinBuff(f).dmgMult || 1);
+    return Math.round(base * dmgMult);
   }
   function attackWindupMs(f) {
     var ratio = f.chargeRatio || 0;
-    var ms = lerp(MIN_WINDUP_MS, MAX_WINDUP_MS, ratio) * typeStats(f).speed;
-    if (f.pwRageUntil > performance.now()) ms = ms * 0.7; // rage buff
+    var ms = lerp(MIN_WINDUP_MS, MAX_WINDUP_MS, ratio) * typeStats(f).speed * (skinBuff(f).speedMult || 1) * statusSlowMult(f);
+    if (f.pwRageUntil > performance.now()) ms = ms * 0.7;
     return Math.round(ms);
   }
   function attackStrikeMs(f) { return f.isHeavyAttack ? STRIKE_MS_HEAVY : STRIKE_MS; }
   function attackRecoveryMs(f) {
-    return Math.round(lerp(MIN_RECOVERY_MS, MAX_RECOVERY_MS, f.chargeRatio || 0) * typeStats(f).recovery);
+    return Math.round(lerp(MIN_RECOVERY_MS, MAX_RECOVERY_MS, f.chargeRatio || 0) * typeStats(f).recovery * (skinBuff(f).speedMult || 1));
   }
 
   function transitionPhase(f, now) {
@@ -2432,6 +2658,15 @@
     defender.parryStreak = 0;
     defender.hitsTaken++;
     attacker.hitsDealt++;
+    // Lifesteal buff
+    var ls = (skinBuff(attacker).lifesteal) || 0;
+    if (ls > 0) {
+      var heal = Math.round(dmg * ls);
+      attacker.hp = Math.min(attacker.maxHp || MAX_HP, attacker.hp + heal);
+      if (heal > 0) addPopup(attacker, '+' + heal + ' HP', '#62e878');
+    }
+    // Apply weapon-type status effect to defender
+    applyWeaponStatus(attacker, defender, now);
     addFlash(defender, attacker.isHeavyAttack ? '#ffaa30' : '#ff5555', attacker.isHeavyAttack ? 110 : 80);
     addPopup(defender, attacker.isHeavyAttack ? 'HEAVY HIT' : 'HIT', attacker.isHeavyAttack ? '#ffaa30' : '#ff7070');
     shake = Math.max(shake, attacker.isHeavyAttack ? 18 : 12);
@@ -2665,6 +2900,27 @@
     if (gameMode === 'online') netSend({ type: 'step_back' });
   }
 
+  // ---------- Player 2 actions (local 2P mode) ----------
+  function tryP2Attack(chargeRatio) {
+    if (gameMode !== 'local' || !enemy) return;
+    var now = performance.now();
+    if (enemy.phase !== 'idle' || now < enemy.attackCooldownUntil || enemy.hp <= 0 || now < enemy.stunUntil) return;
+    var ratio = (typeof chargeRatio === 'number') ? chargeRatio : 0;
+    startAttack(enemy, now, ratio);
+  }
+  function tryP2Shield() {
+    if (gameMode !== 'local' || !enemy) return;
+    var now = performance.now();
+    if (now < enemy.shieldCooldownUntil || enemy.shieldUpUntil > now || now < enemy.stunUntil) return;
+    raiseShield(enemy, now);
+  }
+  function tryP2StepBack() {
+    if (gameMode !== 'local' || !enemy) return;
+    var now = performance.now();
+    if (now < enemy.dashBackCooldownUntil || enemy.range === 1 || now < enemy.stunUntil) return;
+    triggerStepBack(enemy, now);
+  }
+
   function triggerStepBack(f, now) {
     f.range = 1;
     f.rangeUntil = now + STEP_BACK_DURATION_MS;
@@ -2716,7 +2972,72 @@
     shake = Math.max(shake, isSuper ? 26 : 18);
     bgFlash = Math.max(bgFlash, isSuper ? 0.7 : 0.5);
     if (isSuper) playSuper(); else playClang();
+    if (isSuper) triggerUltimate(defender, attacker, now);
     checkEnd();
+  }
+
+  function triggerUltimate(defender, attacker, now) {
+    var t = (defender.skin && defender.skin.type) || 'knight';
+    var pa = getFighterPos(attacker);
+    if (t === 'knight') {
+      // SHIELD BASH — extra damage + stun
+      attacker.hp = Math.max(0, attacker.hp - 15);
+      attacker.stunUntil = now + 600;
+      attacker.hurtFlash = 1;
+      addPopup(defender, 'SHIELD BASH!', '#fff088');
+      addFlash(attacker, '#fff088', 200);
+      shake = Math.max(shake, 30);
+    } else if (t === 'wizard') {
+      // METEOR — fireball from above
+      attacker.hp = Math.max(0, attacker.hp - 22);
+      attacker.hurtFlash = 1;
+      addPopup(defender, 'METEOR!', '#ff7030');
+      // Spawn a meteor projectile from top
+      projectiles.push({
+        type: 'staff',
+        fromX: pa.x, fromY: -50,
+        toX: pa.x, toY: pa.y - 50,
+        spawnAt: now, duration: 350,
+        color: '#ff7030', color2: '#ffaa30', facing: 1
+      });
+      shake = Math.max(shake, 28);
+      bgFlash = Math.max(bgFlash, 0.7);
+    } else if (t === 'ranger') {
+      // TRIPLE SHOT — 3 quick arrows
+      attacker.hp = Math.max(0, attacker.hp - 18);
+      attacker.hurtFlash = 1;
+      addPopup(defender, 'TRIPLE SHOT!', '#a0e8ff');
+      var dp = getFighterPos(defender);
+      var facing = defender.side === 'player' ? 1 : -1;
+      for (var i = 0; i < 3; i++) {
+        projectiles.push({
+          type: 'bow',
+          fromX: dp.x + facing * 70, fromY: dp.y - 50 + (i - 1) * 8,
+          toX: pa.x, toY: pa.y - 50 + (i - 1) * 8,
+          spawnAt: now + i * 80, duration: 200,
+          color: defender.skin.swordBlade, color2: defender.skin.swordPommel, facing: facing
+        });
+      }
+      shake = Math.max(shake, 20);
+    } else if (t === 'necromancer') {
+      // SOUL DRAIN — damage + self heal
+      attacker.hp = Math.max(0, attacker.hp - 18);
+      attacker.hurtFlash = 1;
+      defender.hp = Math.min(defender.maxHp || MAX_HP, defender.hp + 25);
+      addPopup(defender, 'SOUL DRAIN!', '#80ff80');
+      addPopup(defender, '+25 HP', '#62e878');
+      addFlash(attacker, '#80ff80', 180);
+      addFlash(defender, '#80ff80', 180);
+      shake = Math.max(shake, 22);
+    } else if (t === 'samurai') {
+      // FLASH STEP — high damage + slow opponent
+      attacker.hp = Math.max(0, attacker.hp - 20);
+      attacker.hurtFlash = 1;
+      attacker.slowUntil = now + 2500;
+      addPopup(defender, 'FLASH STEP!', '#ffd060');
+      addFlash(attacker, '#fff088', 220);
+      shake = Math.max(shake, 26);
+    }
   }
 
   function applyHitAgainst(attacker, defender, now) {
@@ -2885,6 +3206,48 @@
     var p = getFighterPos(f);
     popups.push({ x: p.x, y: p.y - 150, text: text, color: color, life: 750, max: 750 });
   }
+  // ---------- Status effects (per weapon type) ----------
+  function applyWeaponStatus(attacker, defender, now) {
+    if (!attacker || !attacker.skin) return;
+    var ws = attacker.skin.weaponStyle;
+    if (ws === 'staff') {
+      defender.burnUntil = now + 3000;
+      addPopup(defender, 'BURN', '#ff7030');
+    } else if (ws === 'scythe') {
+      defender.poisonUntil = now + 4000;
+      addPopup(defender, 'POISON', '#80ff80');
+    } else if (ws === 'katana') {
+      defender.bleedUntil = now + 3000;
+      addPopup(defender, 'BLEED', '#cc1010');
+    } else if (ws === 'bow') {
+      defender.slowUntil = now + 2000;
+      addPopup(defender, 'SLOW', '#a0c0ff');
+    }
+    // Knight (sword) applies no status
+  }
+
+  function tickStatusEffects(now) {
+    [player, enemy].forEach(function (f) {
+      if (!f || f.hp <= 0) return;
+      if (now - (f.lastStatusTickAt || 0) < 500) return; // tick every 500ms
+      f.lastStatusTickAt = now;
+      var dot = 0;
+      if (f.burnUntil > now) dot += 2;
+      if (f.poisonUntil > now) dot += 1.5;
+      if (f.bleedUntil > now) dot += 2;
+      if (dot > 0) {
+        f.hp = Math.max(0, f.hp - Math.round(dot));
+        f.hurtFlash = Math.max(f.hurtFlash, 0.4);
+        checkEnd();
+      }
+    });
+  }
+
+  function statusSlowMult(f) {
+    if (f && f.slowUntil > performance.now()) return 1.4; // 40% slower while slowed
+    return 1;
+  }
+
   // ---------- Projectiles (ranged weapon visuals) ----------
   function spawnProjectile(attacker) {
     if (!attacker || !attacker.skin) return;
@@ -3066,6 +3429,22 @@
     shieldDown: false, shieldDownAt: 0, shieldDodgeFired: false,
     swordKey: false, shieldKey: false   // dedupe key auto-repeat
   };
+  var p2Hold = { swordDown: false, swordDownAt: 0, swordKey: false, shieldKey: false };
+  function onP2SwordPress() {
+    if (gameState !== STATE_PLAYING || gameMode !== 'local') return;
+    if (p2Hold.swordDown) return;
+    p2Hold.swordDown = true; p2Hold.swordDownAt = performance.now();
+    if (enemy) enemy.heavyChargeStart = p2Hold.swordDownAt;
+  }
+  function onP2SwordRelease() {
+    if (!p2Hold.swordDown) return;
+    var heldFor = performance.now() - p2Hold.swordDownAt;
+    p2Hold.swordDown = false;
+    if (enemy) enemy.heavyChargeStart = 0;
+    if (gameState !== STATE_PLAYING) return;
+    var ratio = Math.min(1, Math.max(0, heldFor / MAX_CHARGE_HOLD_MS));
+    tryP2Attack(ratio);
+  }
 
   function onSwordPress() {
     if (gameState !== STATE_PLAYING) return;
@@ -3154,9 +3533,21 @@
       holdState.shieldKey = true;
       e.preventDefault();
       onShieldPress();
-    } else if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+    } else if (e.code === 'KeyA') {
       e.preventDefault();
       tryPlayerStepBack();
+    }
+    // Player 2 controls (local 2P mode)
+    if (gameMode === 'local') {
+      if (e.code === 'KeyK') {
+        if (p2Hold.swordKey) return;
+        p2Hold.swordKey = true; e.preventDefault(); onP2SwordPress();
+      } else if (e.code === 'KeyL') {
+        if (p2Hold.shieldKey) return;
+        p2Hold.shieldKey = true; e.preventDefault(); tryP2Shield();
+      } else if (e.code === 'KeyH') {
+        e.preventDefault(); tryP2StepBack();
+      }
     }
   });
   window.addEventListener('keyup', function (e) {
@@ -3166,6 +3557,11 @@
     } else if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       holdState.shieldKey = false;
       onShieldRelease();
+    } else if (e.code === 'KeyK') {
+      p2Hold.swordKey = false;
+      onP2SwordRelease();
+    } else if (e.code === 'KeyL') {
+      p2Hold.shieldKey = false;
     }
   });
 
@@ -3265,8 +3661,8 @@
     // Poll hold triggers (dodge if shield held past threshold)
     pollHoldTriggers(now);
 
-    // Boss campaign AI dispatch (separate brain per boss)
-    if (gameMode === 'campaign' && currentBoss && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
+    // Boss campaign / survival AI dispatch
+    if ((gameMode === 'campaign' || gameMode === 'survival') && currentBoss && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
       bossBrain(now);
     }
 
@@ -3312,6 +3708,7 @@
     tickPowerup(now);
     tickRange(now, dt);
     tickProjectiles(now);
+    tickStatusEffects(now);
 
     // Tutorial controllers
     if (gameMode === 'tutorial') {
@@ -4754,6 +5151,23 @@
 
     ctx.restore();
 
+    // Status effect icons above fighter
+    var statusIcons = [];
+    if (f.burnUntil > now) statusIcons.push({ icon: '🔥', color: '#ff7030' });
+    if (f.poisonUntil > now) statusIcons.push({ icon: '☠', color: '#80ff80' });
+    if (f.bleedUntil > now) statusIcons.push({ icon: '🩸', color: '#cc1010' });
+    if (f.slowUntil > now) statusIcons.push({ icon: '🐌', color: '#a0c0ff' });
+    if (statusIcons.length > 0) {
+      ctx.font = '900 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var totalW = statusIcons.length * 18;
+      statusIcons.forEach(function (st, i) {
+        ctx.fillStyle = st.color;
+        ctx.fillText(st.icon, p.x - totalW / 2 + i * 18 + 9, p.y - 130);
+      });
+    }
+
     // input lock ring (player only)
     if (f.side === 'player' && f.inputLockUntil > now) {
       var rem = (f.inputLockUntil - now) / WHIFF_LOCKOUT_MS;
@@ -5133,8 +5547,14 @@
     // Assign skins
     player.skin = getSkin(profile.skin);
     enemy.skin = enemySkin();
-    // Boss campaign: override enemy HP and use boss skin
-    if (mode === 'campaign' && currentBoss) {
+    // Apply skin buff HP bonus to player
+    var pBuff = (player.skin && player.skin.buff) || {};
+    if (pBuff.hpBonus) {
+      player.maxHp = MAX_HP + pBuff.hpBonus;
+      player.hp = player.maxHp;
+    }
+    // Boss campaign / survival: override enemy HP and use boss skin
+    if ((mode === 'campaign' || mode === 'survival') && currentBoss) {
       enemy.hp = currentBoss.hp;
       enemy.maxHp = currentBoss.hp;
       enemy.username = currentBoss.name;
@@ -5146,8 +5566,10 @@
       enemy.nextAttackAt = now + 1200;
     } else if (mode === 'tutorial') {
       enemy.nextAttackAt = now + 2000;
-    } else if (mode === 'campaign') {
+    } else if (mode === 'campaign' || mode === 'survival') {
       enemy.nextAttackAt = Infinity; // boss brain controls
+    } else if (mode === 'local') {
+      enemy.nextAttackAt = Infinity; // p2 controls
     } else {
       enemy.nextAttackAt = Infinity; // net-driven
     }
@@ -5266,6 +5688,35 @@
       }
       tickChallenge('maxStreak', player ? Math.max(player.parryCount, player.parryStreak) : 0, true);
       if (awarded && awarded.coinDelta > 0) tickChallenge('coinsEarned', awarded.coinDelta);
+      // Class win tracking
+      if (playerWon && player && player.skin) {
+        var t = player.skin.type || 'knight';
+        profile.classWins[t] = (profile.classWins[t] || 0) + 1;
+        if (player.hitsTaken === 0) profile.perfectWins = (profile.perfectWins || 0) + 1;
+      }
+      // Track max parry streak ever
+      if (player) {
+        var streak = Math.max(player.parryCount, player.parryStreak);
+        if (streak > (profile.maxStreakEver || 0)) profile.maxStreakEver = streak;
+      }
+      saveProfile();
+    } else if (!isTutorial && gameMode === 'survival' && currentBoss) {
+      commitMatchStats();
+      if (playerWon && survivalState) {
+        survivalState.wave += 1;
+        var bonus = 25 + survivalState.wave * 5;
+        profile.coins += bonus;
+        campaignReward = bonus;
+        if (survivalState.wave - 1 > (profile.survivalBest || 0)) {
+          profile.survivalBest = survivalState.wave - 1;
+        }
+      } else if (!playerWon && survivalState) {
+        if (survivalState.wave - 1 > (profile.survivalBest || 0)) {
+          profile.survivalBest = survivalState.wave - 1;
+        }
+      }
+      tickChallenge('matches', 1);
+      if (playerWon) tickChallenge('wins', 1);
       saveProfile();
     } else if (!isTutorial && gameMode === 'campaign' && currentBoss) {
       commitMatchStats();
@@ -5346,7 +5797,21 @@
 
     rematchBtn.textContent = (gameMode === 'online' && net.connected) ? 'REMATCH' : 'PLAY AGAIN';
     if (isTutorial) rematchBtn.textContent = 'CONTINUE';
-    if (gameMode === 'campaign') {
+    if (gameMode === 'survival') {
+      var coinE4 = document.getElementById('goCoinDelta');
+      if (playerWon && survivalState) {
+        coinE4.textContent = '+' + campaignReward + ' 🪙 — WAVE ' + (survivalState.wave - 1) + ' CLEARED';
+        coinE4.className = 'coin-delta up';
+        rematchBtn.textContent = 'NEXT WAVE →';
+        rematchBtn.setAttribute('data-action', 'next-wave');
+      } else {
+        var bestEl = document.getElementById('goCoinDelta');
+        bestEl.textContent = 'Survived ' + ((survivalState && (survivalState.wave - 1)) || 0) + ' wave(s) — Best: ' + (profile.survivalBest || 0);
+        bestEl.className = 'coin-delta';
+        rematchBtn.textContent = 'TRY AGAIN';
+        rematchBtn.setAttribute('data-action', 'restart-survival');
+      }
+    } else if (gameMode === 'campaign') {
       // If just unlocked next boss, show NEXT BOSS button + reward popup
       if (campaignFirstClear && campaignReward > 0) {
         // Reuse the coin delta element to show campaign reward
@@ -5371,6 +5836,35 @@
       rematchBtn.setAttribute('data-action', 'go-rematch');
     }
     showScreen('gameover');
+  }
+
+  function saveCanvasSnapshot() {
+    try {
+      var dataUrl = canvas.toDataURL('image/png');
+      var a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'parry-clip-' + Date.now() + '.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      alert('Snapshot failed: ' + e.message);
+    }
+  }
+
+  // ---------- Survival mode ----------
+  var survivalState = null; // { wave, totalDamage, startedAt }
+  function startSurvival() {
+    survivalState = { wave: 1, totalDamage: 0 };
+    currentBoss = randomSurvivalBoss(1);
+    startMatch('survival');
+  }
+  function randomSurvivalBoss(wave) {
+    // Cycle through bosses, scaling HP up with wave
+    var b = BOSSES[(wave - 1) % BOSSES.length];
+    var scaledHp = Math.round(b.hp * (1 + (wave - 1) * 0.15));
+    return { id: b.id, name: b.name + ' #' + wave, skinId: b.skinId, hp: scaledHp,
+             blurb: b.blurb, tip: b.tip, reward: 30 + wave * 5, brain: b.brain };
   }
 
   function nextBoss() {
@@ -5848,6 +6342,24 @@
         break;
       case 'next-boss':
         nextBoss();
+        break;
+      case 'next-wave':
+        if (survivalState) {
+          currentBoss = randomSurvivalBoss(survivalState.wave);
+          startMatch('survival');
+        }
+        break;
+      case 'restart-survival':
+        startSurvival();
+        break;
+      case 'save-snapshot':
+        saveCanvasSnapshot();
+        break;
+      case 'mode-survival':
+        startSurvival();
+        break;
+      case 'mode-local':
+        startMatch('local');
         break;
       case 'back-mode':
         goToMode();
