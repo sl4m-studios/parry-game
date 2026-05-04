@@ -1418,6 +1418,7 @@
   }
   var currentArena = ARENAS[0];
   var hazards = [];      // active/scheduled: { type, x, impactAt, telegraphAt }
+  var projectiles = []; // { type, fromX, fromY, toX, toY, spawnAt, duration, color, color2, facing }
   var nextHazardAt = 0;
   var powerup = null;    // { type, x, y, spawnAt, grabbedBy }
   var nextPowerupAt = 0;
@@ -2239,6 +2240,7 @@
     if (f.phase === 'windup' && elapsed >= attackWindupMs(f)) {
       f.phase = 'strike';
       f.phaseStart = now;
+      spawnProjectile(f);
     } else if (f.phase === 'strike' && elapsed >= attackStrikeMs(f)) {
       if (!f.strikeResolved) {
         if (gameMode === 'tutorial') {
@@ -2850,6 +2852,157 @@
     var p = getFighterPos(f);
     popups.push({ x: p.x, y: p.y - 150, text: text, color: color, life: 750, max: 750 });
   }
+  // ---------- Projectiles (ranged weapon visuals) ----------
+  function spawnProjectile(attacker) {
+    if (!attacker || !attacker.skin) return;
+    var ws = attacker.skin.weaponStyle;
+    if (ws === 'sword') return; // knight uses melee swoosh
+    var defender = attacker.side === 'player' ? enemy : player;
+    if (!defender) return;
+    var ap = getFighterPos(attacker);
+    var dp = getFighterPos(defender);
+    var facing = attacker.side === 'player' ? 1 : -1;
+    var fromX = ap.x + facing * 70;
+    var fromY = ap.y - 50;
+    var toX = dp.x;
+    var toY = dp.y - 50;
+    var duration;
+    switch (ws) {
+      case 'bow':    duration = 280; break;
+      case 'staff':  duration = 520; break;
+      case 'scythe': duration = 460; break;
+      case 'katana': duration = 220; break;
+      default:       duration = 400;
+    }
+    projectiles.push({
+      type: ws,
+      fromX: fromX, fromY: fromY,
+      toX: toX, toY: toY,
+      spawnAt: performance.now(),
+      duration: duration,
+      color: attacker.skin.swordBlade,
+      color2: attacker.skin.swordPommel,
+      facing: facing
+    });
+  }
+
+  function tickProjectiles(now) {
+    for (var i = projectiles.length - 1; i >= 0; i--) {
+      var p = projectiles[i];
+      if (now - p.spawnAt > p.duration + 250) projectiles.splice(i, 1);
+    }
+  }
+
+  function drawProjectiles(now) {
+    for (var i = 0; i < projectiles.length; i++) {
+      var p = projectiles[i];
+      var t = (now - p.spawnAt) / p.duration;
+      if (t < 0) continue;
+      if (t > 1) {
+        var fade = 1 - (t - 1) * 4;
+        if (fade <= 0) continue;
+        // Impact burst at target
+        ctx.fillStyle = hexA(p.color, fade * 0.6);
+        ctx.beginPath();
+        ctx.arc(p.toX, p.toY, 8 + 18 * (1 - fade), 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
+      var x = p.fromX + (p.toX - p.fromX) * t;
+      var y = p.fromY + (p.toY - p.fromY) * t;
+      drawProjectileBody(p, x, y, t);
+    }
+  }
+
+  function drawProjectileBody(p, x, y, t) {
+    var dx = p.toX - p.fromX, dy = p.toY - p.fromY;
+    var ang = Math.atan2(dy, dx);
+    if (p.type === 'staff') {
+      // Fireball with trail
+      for (var k = 1; k < 6; k++) {
+        var tt = Math.max(0, t - k * 0.06);
+        var tx = p.fromX + (p.toX - p.fromX) * tt;
+        var ty = p.fromY + (p.toY - p.fromY) * tt;
+        ctx.fillStyle = hexA(p.color, (1 - k / 6) * 0.4);
+        ctx.beginPath(); ctx.arc(tx, ty, 8 - k, 0, Math.PI * 2); ctx.fill();
+      }
+      // Glow
+      var grd = ctx.createRadialGradient(x, y, 2, x, y, 18);
+      grd.addColorStop(0, '#fff');
+      grd.addColorStop(0.4, p.color);
+      grd.addColorStop(1, hexA(p.color, 0));
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fill();
+      // Core
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+    } else if (p.type === 'bow') {
+      // Arrow
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      // Shaft
+      ctx.fillStyle = p.color2;
+      ctx.fillRect(-14, -1, 22, 2);
+      // Arrowhead
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(8, 0); ctx.lineTo(2, -4); ctx.lineTo(14, 0); ctx.lineTo(2, 4);
+      ctx.closePath(); ctx.fill();
+      // Fletching
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(-14, 0); ctx.lineTo(-9, -3); ctx.lineTo(-9, 3);
+      ctx.closePath(); ctx.fill();
+      // Speed lines
+      ctx.strokeStyle = hexA(p.color, 0.4);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-22, -3); ctx.lineTo(-12, -3);
+      ctx.moveTo(-22, 3); ctx.lineTo(-12, 3);
+      ctx.stroke();
+      ctx.restore();
+    } else if (p.type === 'scythe') {
+      // Crescent dark slash flying
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      // Outer glow
+      ctx.strokeStyle = hexA(p.color, 0.35);
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, -1.4, 1.4);
+      ctx.stroke();
+      // Core blade
+      ctx.strokeStyle = hexA(p.color, 0.95);
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, -1.4, 1.4);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.restore();
+    } else if (p.type === 'katana') {
+      // Razor energy slice — thin streak with afterimage
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang);
+      ctx.strokeStyle = hexA(p.color, 0.4);
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-30, 0); ctx.lineTo(10, 0);
+      ctx.stroke();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-30, 0); ctx.lineTo(10, 0);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.restore();
+    }
+  }
+
   function addParrySparks(defender, attacker, isSuper) {
     var pos = shieldImpactPos(defender);
     var count = isSuper ? 28 : 18;
@@ -3125,6 +3278,7 @@
     tickHazards(now);
     tickPowerup(now);
     tickRange(now, dt);
+    tickProjectiles(now);
 
     // Tutorial controllers
     if (gameMode === 'tutorial') {
@@ -4524,60 +4678,8 @@
       var curA = pullback + (followthrough - pullback) * ts;
       var weaponStyle = (s && s.weaponStyle) || 'sword';
 
-      if (weaponStyle === 'scythe') {
-        // Wide crescent slash — bigger arc, green-tint
-        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(160,255,140,0.50)' : 'rgba(180,255,160,0.35)';
-        ctx.lineWidth = f.isHeavyAttack ? 26 : 20;
-        ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
-        ctx.strokeStyle = 'rgba(220,255,200,0.85)';
-        ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.arc(0, 0, 104, startA, curA); ctx.stroke();
-      } else if (weaponStyle === 'katana') {
-        // Razor-thin slash line
-        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,200,120,0.7)' : 'rgba(255,255,255,0.85)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
-      } else if (weaponStyle === 'staff') {
-        // Magic burst at orb position (leading edge)
-        var orbA = curA;
-        var orbX = Math.cos(orbA) * 100;
-        var orbY = Math.sin(orbA) * 100;
-        var grd = ctx.createRadialGradient(orbX, orbY, 4, orbX, orbY, 36);
-        grd.addColorStop(0, 'rgba(180,200,255,0.8)');
-        grd.addColorStop(0.5, 'rgba(150,180,255,0.4)');
-        grd.addColorStop(1, 'rgba(100,150,255,0)');
-        ctx.fillStyle = grd;
-        ctx.beginPath(); ctx.arc(orbX, orbY, 36, 0, Math.PI * 2); ctx.fill();
-        // Trail
-        ctx.strokeStyle = 'rgba(180,200,255,0.4)';
-        ctx.lineWidth = 6;
-        ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
-      } else if (weaponStyle === 'bow') {
-        // Arrow projectile streak — quick straight line from bow to forward
-        var tipA = curA;
-        var tipX = Math.cos(tipA) * 110;
-        var tipY = Math.sin(tipA) * 110;
-        ctx.strokeStyle = 'rgba(255,255,200,0.85)';
-        ctx.lineWidth = 3;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(tipA) * 30, Math.sin(tipA) * 30);
-        ctx.lineTo(tipX, tipY);
-        ctx.stroke();
-        // Speed lines
-        ctx.strokeStyle = 'rgba(255,255,200,0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(tipA) * 50, Math.sin(tipA) * 50 - 4);
-        ctx.lineTo(tipX, tipY - 4);
-        ctx.moveTo(Math.cos(tipA) * 50, Math.sin(tipA) * 50 + 4);
-        ctx.lineTo(tipX, tipY + 4);
-        ctx.stroke();
-      } else {
-        // Default sword swoosh
+      // Sword (knight) gets the local swoosh; ranged weapons rely on the projectile system instead.
+      if (weaponStyle === 'sword') {
         ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,180,60,0.40)' : 'rgba(255,255,220,0.30)';
         ctx.lineWidth = f.isHeavyAttack ? 18 : 14;
         ctx.lineCap = 'round';
@@ -4585,8 +4687,8 @@
         ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,220,120,0.85)' : 'rgba(255,255,255,0.65)';
         ctx.lineWidth = 5;
         ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
+        ctx.lineCap = 'butt';
       }
-      ctx.lineCap = 'butt';
     }
     ctx.rotate(armAngle);
     ctx.fillStyle = trim;
@@ -4736,6 +4838,7 @@
       drawPowerup(now);
       drawFighter(enemy, now);
       drawFighter(player, now);
+      drawProjectiles(now);
       drawSparks();
       drawFlashes();
       drawPopups();
@@ -5002,6 +5105,7 @@
     }
     playerLastAction = null;
     flashes.length = 0; popups.length = 0; sparks.length = 0;
+    projectiles.length = 0;
     pendingAttackerFallbacks.length = 0;
     hazards.length = 0; powerup = null;
     shake = 0; bgFlash = 0; pausedAt = 0;
