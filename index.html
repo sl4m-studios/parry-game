@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a14">
+<title>PARRY!</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0a14; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+  }
+  #game { display: block; width: 100%; height: 100%; touch-action: none; }
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(10,10,20,0.92);
+    text-align: center;
+    padding: 28px;
+    gap: 18px;
+  }
+  .screen.hidden { display: none; }
+  h1.title {
+    font-size: clamp(56px, 14vw, 140px);
+    font-weight: 900; letter-spacing: 0.02em;
+    color: #ffd34d;
+    text-shadow: 0 4px 0 #c08c00, 0 8px 24px rgba(255,200,77,0.4);
+    line-height: 1; margin-bottom: 8px;
+  }
+  h2.subtitle {
+    font-size: clamp(28px, 7vw, 56px);
+    font-weight: 900; color: #fff;
+    letter-spacing: 0.02em; line-height: 1;
+  }
+  p.lead {
+    font-size: clamp(15px, 3.6vw, 20px);
+    color: #ccc; max-width: 86%; line-height: 1.4;
+  }
+  .btn {
+    font: inherit; font-weight: 800;
+    font-size: clamp(20px, 5vw, 26px);
+    padding: 16px 36px; border: 0; border-radius: 999px;
+    background: #ffd34d; color: #1a1300;
+    box-shadow: 0 6px 0 #c08c00, 0 10px 24px rgba(0,0,0,0.4);
+    cursor: pointer; touch-action: manipulation;
+    min-width: 240px;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #c08c00; }
+  .btn.secondary {
+    background: #2a2a44; color: #fff;
+    box-shadow: 0 6px 0 #14142a, 0 10px 24px rgba(0,0,0,0.4);
+  }
+  .btn.secondary:active { box-shadow: 0 3px 0 #14142a; }
+  .btn.ghost {
+    background: transparent; color: #aaa;
+    box-shadow: none; padding: 10px 22px; min-width: 0;
+    font-size: clamp(14px, 3vw, 16px);
+  }
+  .btn.ghost:active { transform: none; }
+  .btn-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .small { color: #888; font-size: 13px; letter-spacing: 0.05em; }
+  .spinner {
+    width: 56px; height: 56px;
+    border: 5px solid rgba(255,255,255,0.15);
+    border-top-color: #ffd34d;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+    margin: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stat {
+    display: inline-block; padding: 6px 14px;
+    background: rgba(255,255,255,0.08); border-radius: 999px;
+    font-size: 14px; color: #ccc; margin: 4px;
+  }
+  .top-left-btn {
+    position: absolute; top: 18px; left: 18px;
+    font: inherit; font-weight: 700; font-size: 14px;
+    padding: 10px 18px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.10); color: #fff;
+    cursor: pointer; touch-action: manipulation;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(4px);
+  }
+  .top-left-btn:hover { background: rgba(255,255,255,0.18); }
+  .top-left-btn .icon { color: #ffd34d; margin-right: 6px; font-size: 16px; }
+  .top-right-btn {
+    position: absolute; top: 18px; right: 18px;
+    font: inherit; font-weight: 700; font-size: 14px;
+    padding: 10px 18px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.10); color: #fff;
+    cursor: pointer; touch-action: manipulation;
+    letter-spacing: 0.05em;
+  }
+  .top-right-btn:hover { background: rgba(255,255,255,0.18); }
+  .top-right-btn .icon { color: #ffd34d; margin-right: 6px; font-size: 16px; }
+  .username-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: #ddd; letter-spacing: 0.05em;
+  }
+  .username-row span { font-weight: 700; }
+  .mini-btn {
+    font: inherit; font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.12); color: #ccc;
+    cursor: pointer; letter-spacing: 0.05em;
+  }
+  .mini-btn:hover { background: rgba(255,255,255,0.22); color: #fff; }
+  .mode-note {
+    font-size: 11px; color: #888; margin-top: 6px;
+    max-width: 260px; line-height: 1.4;
+  }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; min-width: 280px; max-width: 90%;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+  }
+  .settings-row label {
+    font-weight: 700; font-size: 15px; color: #ccc; letter-spacing: 0.04em;
+  }
+  .settings-row input {
+    font: inherit; font-size: 14px; font-weight: 700;
+    padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(0,0,0,0.3); color: #fff;
+    width: 160px; text-align: right; letter-spacing: 0.05em;
+  }
+  .settings-row input:focus { outline: 2px solid #ffd34d; }
+  .toggle-btn {
+    font: inherit; font-weight: 800; font-size: 14px;
+    padding: 8px 18px; border: 0; border-radius: 999px;
+    background: #4dd6ff; color: #08303f;
+    cursor: pointer; letter-spacing: 0.06em;
+  }
+  .toggle-btn.off { background: #444; color: #aaa; }
+  .toggle-btn.danger { background: #883333; color: #fff; }
+  .toggle-btn.danger:hover { background: #aa3333; }
+
+  /* ---------- Rank widget ---------- */
+  .rank-card {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 18px 26px; border-radius: 18px;
+    min-width: 280px; max-width: 90%;
+  }
+  .rank-card .rank-name {
+    font-weight: 900; font-size: 22px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .rank-card .rank-rp {
+    font-size: 13px; color: #aaa; letter-spacing: 0.05em;
+  }
+  .rank-card .rp-bar {
+    width: 240px; height: 8px; border-radius: 999px;
+    background: rgba(255,255,255,0.10);
+    overflow: hidden; margin-top: 4px;
+  }
+  .rank-card .rp-fill {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, #ffd34d, #ff9c20);
+    transition: width 0.6s ease-out;
+  }
+  .rank-card .career-stats {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    font-size: 12px; color: #aaa; margin-top: 4px;
+  }
+  .rank-card .career-stats span { padding: 3px 10px; background: rgba(255,255,255,0.06); border-radius: 999px; }
+
+  /* ---------- Rank badges ---------- */
+  .badge {
+    width: 96px; height: 110px; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    clip-path: polygon(50% 0%, 100% 18%, 100% 65%, 50% 100%, 0 65%, 0 18%);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    overflow: visible;
+  }
+  .badge.large { width: 140px; height: 162px; }
+  .badge.small { width: 60px; height: 70px; }
+  .badge::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(160deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.30) 100%);
+    pointer-events: none;
+  }
+  .badge::after {
+    content: ''; position: absolute; inset: 0;
+    border: 2px solid rgba(255,255,255,0.5);
+    clip-path: polygon(50% 0%, 100% 18%, 100% 65%, 50% 100%, 0 65%, 0 18%);
+    pointer-events: none;
+  }
+  .badge .gem {
+    width: 38%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.4) 30%, rgba(255,255,255,0) 60%), var(--gem, #fff);
+    box-shadow: 0 0 18px var(--gem-glow, #fff), inset 0 -4px 8px rgba(0,0,0,0.4);
+    margin-top: 22%;
+  }
+  .badge.large .gem { margin-top: 24%; }
+  .badge .stars {
+    display: flex; gap: 3px; margin-top: 6px;
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+    font-size: 11px;
+  }
+  .badge.large .stars { font-size: 16px; gap: 4px; margin-top: 8px; }
+  .badge.bronze   { background: linear-gradient(150deg, #e69458 0%, #a04e1c 55%, #5a2a0c 100%); --gem: #ffb877; --gem-glow: #ff7a30; }
+  .badge.silver   { background: linear-gradient(150deg, #f4f4f8 0%, #aab0bb 55%, #5b6170 100%); --gem: #e0e8f0; --gem-glow: #c4d0e0; }
+  .badge.gold     { background: linear-gradient(150deg, #ffe48a 0%, #c89c10 55%, #6e500a 100%); --gem: #ffe680; --gem-glow: #ffaa10; }
+  .badge.platinum { background: linear-gradient(150deg, #e6f6ff 0%, #88c2d8 55%, #2d6486 100%); --gem: #b9eaff; --gem-glow: #4fc3f7; }
+  .badge.diamond  { background: linear-gradient(150deg, #d0faff 0%, #4ba8c0 55%, #1c5060 100%); --gem: #88f0ff; --gem-glow: #00d4ff; }
+  .badge.champion {
+    background: linear-gradient(150deg, #ff8a8a 0%, #c41818 55%, #5a0000 100%);
+    --gem: #ffc070; --gem-glow: #ff4040;
+  }
+  .badge.apex {
+    background: linear-gradient(150deg, #ff85ff 0%, #6a4dff 35%, #00d4ff 70%, #00ffa0 100%);
+    --gem: #fff; --gem-glow: #b388ff;
+    animation: apex-shimmer 3s linear infinite;
+    background-size: 200% 200%;
+  }
+  @keyframes apex-shimmer {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  /* ---------- Tutorial overlay ---------- */
+  .tutorial-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 20px 24px;
+    background: linear-gradient(180deg, rgba(10,10,20,0.92), rgba(10,10,20,0));
+    color: #fff; text-align: center; pointer-events: none;
+    z-index: 50;
+  }
+  .tutorial-banner.hidden { display: none; }
+  .tutorial-banner .step-label {
+    font-size: 12px; color: #ffd34d; letter-spacing: 0.16em;
+    font-weight: 800;
+  }
+  .tutorial-banner .step-text {
+    font-size: clamp(18px, 4vw, 24px);
+    font-weight: 800; margin-top: 4px;
+  }
+  .tutorial-banner .step-hint {
+    font-size: 13px; color: #aaa; margin-top: 4px;
+  }
+  .tutorial-skip {
+    position: fixed; top: 18px; right: 18px;
+    font: inherit; font-weight: 700; font-size: 13px;
+    padding: 8px 16px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.10); color: #ccc;
+    cursor: pointer; touch-action: manipulation; z-index: 51;
+  }
+  .tutorial-skip.hidden { display: none; }
+
+  /* ---------- Game over rank panel ---------- */
+  .rank-progress {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    margin: 10px 0 16px;
+  }
+  .rank-progress .delta {
+    font-size: 22px; font-weight: 900; letter-spacing: 0.04em;
+  }
+  .rank-progress .delta.up { color: #62e878; }
+  .rank-progress .delta.down { color: #ff7a7a; }
+  .rank-progress .rp-bar-large {
+    width: 280px; height: 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.10); overflow: hidden;
+  }
+  .rank-progress .rp-fill-large {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, #ffd34d, #ff9c20);
+    transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .promote-flash {
+    font-size: 22px; font-weight: 900; color: #ffd34d;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    animation: promote-glow 1.2s ease-in-out;
+  }
+  @keyframes promote-glow {
+    0%, 100% { text-shadow: 0 0 0 transparent; }
+    50% { text-shadow: 0 0 20px #ffd34d, 0 0 40px #ff9c20; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="screen" data-screen="boot">
+  <h1 class="title">PARRY!</h1>
+  <p class="lead">One button. Sixty seconds. All timing.</p>
+  <button class="btn" data-action="boot-play">PLAY</button>
+  <div class="small">v0.2 prototype</div>
+</div>
+
+<div class="screen hidden" data-screen="mode">
+  <button class="top-left-btn" data-action="open-tutorial"><span class="icon">?</span>TUTORIAL</button>
+  <button class="top-right-btn" data-action="open-settings"><span class="icon">⚙</span>SETTINGS</button>
+  <div id="modeRankWidget" class="rank-card">
+    <div class="badge" id="modeBadge"><div class="gem"></div><div class="stars" id="modeBadgeStars"></div></div>
+    <div class="rank-name" id="modeRankName">UNRANKED</div>
+    <div class="username-row">
+      <span id="modeUsername">PLAYER</span>
+      <button class="mini-btn" data-action="edit-name">EDIT</button>
+    </div>
+    <div class="rank-rp" id="modeRankRp">0 / 100 RP</div>
+    <div class="rp-bar"><div class="rp-fill" id="modeRpFill" style="width:0%"></div></div>
+    <div class="career-stats" id="modeCareer"></div>
+    <div class="mode-note">VS Player matches affect your rank. VS AI is unranked practice.</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" data-action="mode-ai">VS AI</button>
+    <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
+  </div>
+  <button class="btn ghost" data-action="back-boot">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="settings">
+  <h2 class="subtitle">SETTINGS</h2>
+  <div class="settings-row">
+    <label>Username</label>
+    <input id="settingsName" maxlength="14" spellcheck="false" autocomplete="off" />
+  </div>
+  <div class="settings-row">
+    <label>Sound</label>
+    <button class="toggle-btn" data-action="toggle-sound" id="soundToggle">ON</button>
+  </div>
+  <div class="settings-row">
+    <label>Reset Profile</label>
+    <button class="toggle-btn danger" data-action="reset-profile">RESET ALL DATA</button>
+  </div>
+  <button class="btn ghost" data-action="settings-back">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="matchmaking">
+  <h2 class="subtitle">SEARCHING</h2>
+  <div class="spinner"></div>
+  <p class="lead" id="mmStatus">Connecting to lobby...</p>
+  <div class="small" id="mmHint">Open this page in another tab or share with a friend to match.</div>
+  <div class="btn-row">
+    <button class="btn ghost" data-action="mm-cancel">CANCEL</button>
+    <button class="btn secondary hidden" data-action="mm-fallback-ai" id="mmFallback">PLAY VS AI INSTEAD</button>
+  </div>
+</div>
+
+<div class="screen hidden" data-screen="gameover">
+  <h2 class="subtitle" id="goTitle">VICTORY</h2>
+  <p class="lead" id="goMsg">Clean duel. Run it back?</p>
+  <div class="rank-progress" id="goRankPanel">
+    <div class="badge large" id="goBadge"><div class="gem"></div><div class="stars" id="goBadgeStars"></div></div>
+    <div class="delta" id="goRpDelta">+0 RP</div>
+    <div class="rank-name" id="goRankName">UNRANKED</div>
+    <div class="rank-rp" id="goRankRp">0 / 100 RP</div>
+    <div class="rp-bar-large"><div class="rp-fill-large" id="goRpFill" style="width:0%"></div></div>
+    <div class="promote-flash hidden" id="goPromote">RANK UP</div>
+  </div>
+  <div id="goStats"></div>
+  <div class="btn-row">
+    <button class="btn" data-action="go-rematch" id="goRematchBtn">PLAY AGAIN</button>
+    <button class="btn secondary" data-action="go-menu">MAIN MENU</button>
+  </div>
+</div>
+
+<div class="tutorial-banner hidden" id="tutorialBanner">
+  <div class="step-label" id="tutStepLabel">STEP 1 OF 4</div>
+  <div class="step-text" id="tutStepText">Welcome to PARRY!</div>
+  <div class="step-hint" id="tutStepHint">Watch the rival's red glow.</div>
+</div>
+<button class="tutorial-skip hidden" id="tutorialSkip" data-action="tut-skip">SKIP</button>
+
+<script>
+'use strict';
+
+(function () {
+  // ---------- Tuning ----------
+  var ATTACK_INTERVAL_MS = 1700;
+  var ATTACK_INTERVAL_JITTER_MS = 500;
+  var WINDUP_MS = 720;
+  var STRIKE_MS = 120;
+  var RECOVERY_MS = 480;
+  var PARRY_WINDOW_BEFORE_STRIKE_MS = 260;
+  var PARRY_WINDOW_AFTER_STRIKE_MS = 70;
+  var WHIFF_LOCKOUT_MS = 320;
+  var HIT_DAMAGE = 12;
+  var PARRY_DAMAGE = 9;
+  var SUPER_DAMAGE = 28;
+  var MATCH_TIME_MS = 60000;
+  var MAX_HP = 100;
+  var PARRY_FOR_SUPER = 3;
+
+  var SHIELD_RAISE_MS = 220;
+  var RECOIL_MS = 220;
+
+  var LOBBY_ID = 'parry-of-ages-lobby-2026-v2';
+  var MATCHMAKING_TIMEOUT_MS = 14000;
+
+  // ---------- Rank tiers ----------
+  // Every tier has 3 divisions. Division 3 = lowest (just promoted in), Division 1 = highest (about to promote out).
+  var RANK_TIERS = [
+    { name: 'BRONZE',   class: 'bronze',   divs: 3, rpPerDiv: 100 },
+    { name: 'SILVER',   class: 'silver',   divs: 3, rpPerDiv: 110 },
+    { name: 'GOLD',     class: 'gold',     divs: 3, rpPerDiv: 120 },
+    { name: 'PLATINUM', class: 'platinum', divs: 3, rpPerDiv: 140 },
+    { name: 'DIAMOND',  class: 'diamond',  divs: 3, rpPerDiv: 160 },
+    { name: 'CHAMPION', class: 'champion', divs: 3, rpPerDiv: 200 },
+    { name: 'APEX',     class: 'apex',     divs: 3, rpPerDiv: 250 }
+  ];
+  // Cumulative RP at start of each tier (computed once)
+  var TIER_THRESHOLDS = (function () {
+    var ths = [0]; var acc = 0;
+    for (var i = 0; i < RANK_TIERS.length - 1; i++) {
+      acc += RANK_TIERS[i].divs * RANK_TIERS[i].rpPerDiv;
+      ths.push(acc);
+    }
+    return ths;
+  })();
+
+  function computeRank(rp) {
+    if (rp < 0) rp = 0;
+    for (var i = RANK_TIERS.length - 1; i >= 0; i--) {
+      if (rp >= TIER_THRESHOLDS[i]) {
+        var tier = RANK_TIERS[i];
+        var rpInTier = rp - TIER_THRESHOLDS[i];
+        var divIdx = Math.min(tier.divs - 1, Math.floor(rpInTier / tier.rpPerDiv));
+        var division = tier.divs - divIdx;
+        var rpInDiv = rpInTier - divIdx * tier.rpPerDiv;
+        var rpForNext = tier.rpPerDiv;
+        var isTopTier = (i === RANK_TIERS.length - 1);
+        var atMax = isTopTier && division === 1 && rpInDiv >= rpForNext;
+        if (atMax) rpInDiv = rpForNext;
+        return {
+          tierIndex: i, name: tier.name, class: tier.class,
+          division: division, divisions: tier.divs,
+          rpInDiv: rpInDiv, rpForNext: rpForNext,
+          percent: atMax ? 1 : rpInDiv / rpForNext,
+          isMax: atMax
+        };
+      }
+    }
+    return { tierIndex: 0, name: 'BRONZE', class: 'bronze', division: 3, divisions: 3,
+             rpInDiv: 0, rpForNext: 100, percent: 0, isMax: false };
+  }
+
+  function divisionRoman(n) { return ['', 'I', 'II', 'III', 'IV'][n] || String(n); }
+
+  // ---------- Persistence ----------
+  var SAVE_KEY = 'parry-of-ages-save-v1';
+  var profile = loadProfile();
+
+  function makeDefaultUsername() {
+    var nouns = ['KNIGHT','BLADE','PARRY','EDGE','RONIN','DUEL','GUARD','SPIRE','VALOR','STORM','FANG','OATH'];
+    return nouns[Math.floor(Math.random() * nouns.length)] + Math.floor(1000 + Math.random() * 9000);
+  }
+
+  function loadProfile() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        var p = JSON.parse(raw);
+        return {
+          rp: typeof p.rp === 'number' ? p.rp : 0,
+          tutorialDone: !!p.tutorialDone,
+          username: (p.username && String(p.username).slice(0, 14)) || makeDefaultUsername(),
+          soundOn: p.soundOn !== false,
+          stats: {
+            matches: (p.stats && p.stats.matches) || 0,
+            wins: (p.stats && p.stats.wins) || 0,
+            parries: (p.stats && p.stats.parries) || 0,
+            supers: (p.stats && p.stats.supers) || 0,
+            hitsDealt: (p.stats && p.stats.hitsDealt) || 0,
+            hitsTaken: (p.stats && p.stats.hitsTaken) || 0,
+            highestRp: (p.stats && p.stats.highestRp) || 0
+          }
+        };
+      }
+    } catch (e) {}
+    return {
+      rp: 0, tutorialDone: false,
+      username: makeDefaultUsername(), soundOn: true,
+      stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
+    };
+  }
+
+  function saveProfile() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); } catch (e) {}
+  }
+
+  function awardMatchOutcome(won, mode) {
+    // Only ONLINE matches affect rank. AI and tutorial are unranked practice.
+    if (mode !== 'online') return { delta: 0, oldRp: profile.rp, newRp: profile.rp };
+    var delta = won ? 25 : -12;
+    var oldRp = profile.rp;
+    var newRp = Math.max(0, oldRp + delta);
+    profile.rp = newRp;
+    if (newRp > profile.stats.highestRp) profile.stats.highestRp = newRp;
+    return { delta: newRp - oldRp, oldRp: oldRp, newRp: newRp };
+  }
+
+  function commitMatchStats() {
+    if (!player) return;
+    profile.stats.matches += 1;
+    profile.stats.parries += player.parryCount;
+    profile.stats.supers += player.superCount;
+    profile.stats.hitsDealt += player.hitsDealt;
+    profile.stats.hitsTaken += player.hitsTaken;
+    saveProfile();
+  }
+
+  // ---------- Canvas ----------
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var dpr = 1, cssW = 0, cssH = 0;
+
+  function resize() {
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    cssW = window.innerWidth;
+    cssH = window.innerHeight;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Audio ----------
+  var audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      try {
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (Ctor) audioCtx = new Ctor();
+      } catch (e) { audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playClang() {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var noise = audioCtx.createBufferSource();
+    var buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.22), audioCtx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    noise.buffer = buf;
+    var bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 8;
+    var g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    noise.connect(bp); bp.connect(g); g.connect(audioCtx.destination);
+    noise.start(t); noise.stop(t + 0.24);
+
+    var osc = audioCtx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(2200, t);
+    osc.frequency.exponentialRampToValueAtTime(900, t + 0.22);
+    var og = audioCtx.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.28, t + 0.005);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+    osc.connect(og); og.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + 0.26);
+  }
+
+  function playHit() {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, t);
+    osc.frequency.exponentialRampToValueAtTime(60, t + 0.18);
+    var g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.55, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + 0.25);
+  }
+
+  function playWhiff() {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var osc = audioCtx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+    var g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.10, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(t); osc.stop(t + 0.1);
+  }
+
+  function playSuper() {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var freqs = [220, 277, 330, 440];
+    for (var i = 0; i < freqs.length; i++) {
+      var f = freqs[i];
+      var osc = audioCtx.createOscillator();
+      osc.type = i === 0 ? 'sawtooth' : 'triangle';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.5);
+      var g = audioCtx.createGain();
+      var start = t + i * 0.02;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.18, start + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start(start); osc.stop(t + 0.65);
+    }
+  }
+
+  function playEnd(win) {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var f = win ? [330, 415, 494, 659] : [330, 277, 220, 165];
+    for (var i = 0; i < f.length; i++) {
+      var osc = audioCtx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f[i];
+      var g = audioCtx.createGain();
+      var start = t + i * 0.13;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.22, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start(start); osc.stop(start + 0.34);
+    }
+  }
+
+  // ---------- Game state ----------
+  var STATE_BOOT = 0, STATE_MENU_MODE = 1, STATE_MATCHMAKING = 2,
+      STATE_PLAYING = 3, STATE_GAMEOVER = 4;
+  var gameState = STATE_BOOT;
+  var gameMode = 'ai'; // 'ai' or 'online'
+
+  function makeFighter(side) {
+    return {
+      side: side,
+      hp: MAX_HP,
+      phase: 'idle',
+      phaseStart: 0,
+      nextAttackAt: 0,
+      parryStreak: 0,
+      inputLockUntil: 0,
+      hurtFlash: 0,
+      strikeResolved: false,
+      shieldRaiseT: 0, // 0..1 over SHIELD_RAISE_MS
+      shieldRaiseAt: 0,
+      recoilT: 0,
+      recoilAt: 0,
+      // AI fields
+      aiWillParryThis: false,
+      aiParryAt: 0,
+      // Stats
+      parryCount: 0,
+      superCount: 0,
+      hitsTaken: 0,
+      hitsDealt: 0,
+      username: side === 'player' ? (profile && profile.username) || 'YOU' : 'RIVAL'
+    };
+  }
+
+  var player = null, enemy = null;
+  var matchStartTime = 0;
+  var lastTime = 0;
+  var shake = 0, bgFlash = 0;
+  var flashes = [], popups = [], sparks = [];
+  var pausedAt = 0;
+
+  // ---------- Networking ----------
+  var net = {
+    peer: null,
+    conn: null,
+    isHost: false,
+    connected: false,
+    onMessage: null,
+    cleanup: null
+  };
+
+  function netSend(msg) {
+    if (net.conn && net.conn.open) {
+      try { net.conn.send(msg); } catch (e) {}
+    }
+  }
+
+  function netCleanup() {
+    if (net.cleanup) { try { net.cleanup(); } catch (e) {} net.cleanup = null; }
+    if (net.conn) { try { net.conn.close(); } catch (e) {} net.conn = null; }
+    if (net.peer) { try { net.peer.destroy(); } catch (e) {} net.peer = null; }
+    net.connected = false;
+    net.isHost = false;
+  }
+
+  function wireConnection(c) {
+    net.conn = c;
+    net.opponentName = null;
+    net.onMessage = onNetMessage;
+    c.on('data', function (msg) {
+      if (net.onMessage) net.onMessage(msg);
+    });
+    c.on('close', function () {
+      net.connected = false;
+      if (gameState === STATE_PLAYING && gameMode === 'online') {
+        endMatch(true, 'Opponent disconnected.');
+      }
+    });
+    c.on('error', function () {});
+    net.connected = true;
+    // Send greeting with username
+    setTimeout(function () {
+      netSend({ type: 'hello', name: profile.username });
+    }, 50);
+  }
+
+  function findMatch(onStatus) {
+    return new Promise(function (resolve, reject) {
+      if (typeof Peer === 'undefined') {
+        reject(new Error('Network library failed to load.'));
+        return;
+      }
+
+      var settled = false;
+      var timeoutId = null;
+      var phase = 'init';
+
+      function fail(msg) {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        reject(new Error(msg));
+      }
+      function succeed() {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve();
+      }
+
+      timeoutId = setTimeout(function () {
+        fail('No opponent found.');
+      }, MATCHMAKING_TIMEOUT_MS);
+
+      function tryJoin() {
+        phase = 'join';
+        onStatus('Looking for an open lobby...');
+        if (net.peer) { try { net.peer.destroy(); } catch (e) {} }
+        net.peer = new Peer({ debug: 0 });
+        net.peer.on('open', function () {
+          if (settled) return;
+          var c = net.peer.connect(LOBBY_ID, { reliable: true });
+          var opened = false;
+          var localTimeout = setTimeout(function () {
+            if (!opened && !settled) {
+              try { c.close(); } catch (e) {}
+              tryHost();
+            }
+          }, 2500);
+          c.on('open', function () {
+            opened = true;
+            clearTimeout(localTimeout);
+            net.isHost = false;
+            wireConnection(c);
+            onStatus('Opponent found! Starting...');
+            succeed();
+          });
+          c.on('error', function () {
+            clearTimeout(localTimeout);
+            if (!opened && !settled) tryHost();
+          });
+        });
+        net.peer.on('error', function (err) {
+          if (settled) return;
+          if (err && err.type === 'peer-unavailable') {
+            tryHost();
+          } else {
+            fail(err && err.message ? err.message : 'Connection error.');
+          }
+        });
+      }
+
+      function tryHost() {
+        phase = 'host';
+        onStatus('Waiting for an opponent...');
+        if (net.peer) { try { net.peer.destroy(); } catch (e) {} }
+        net.peer = new Peer(LOBBY_ID, { debug: 0 });
+        net.peer.on('open', function () {
+          if (settled) return;
+          net.isHost = true;
+        });
+        net.peer.on('connection', function (incoming) {
+          if (settled) {
+            try { incoming.close(); } catch (e) {}
+            return;
+          }
+          if (net.connected) {
+            // already paired (race) — reject
+            try { incoming.close(); } catch (e) {}
+            return;
+          }
+          incoming.on('open', function () {
+            if (settled || net.connected) {
+              try { incoming.close(); } catch (e) {}
+              return;
+            }
+            wireConnection(incoming);
+            onStatus('Opponent found! Starting...');
+            succeed();
+          });
+        });
+        net.peer.on('error', function (err) {
+          if (settled) return;
+          if (err && (err.type === 'unavailable-id' || (err.message || '').indexOf('taken') >= 0)) {
+            // Someone claimed the lobby between our attempts — try joining again
+            setTimeout(tryJoin, 600);
+          } else {
+            fail(err && err.message ? err.message : 'Connection error.');
+          }
+        });
+      }
+
+      tryJoin();
+    });
+  }
+
+  // Networked match handlers
+  function onNetMessage(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    // hello is allowed any time
+    if (msg.type === 'hello') {
+      net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
+      if (enemy) enemy.username = net.opponentName;
+      return;
+    }
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    switch (msg.type) {
+      case 'attack_start':
+        // Opponent began an attack; mirror it locally
+        if (enemy && enemy.phase === 'idle') {
+          startAttackVisual(enemy, now);
+        }
+        break;
+      case 'parry':
+        // Opponent parried our attack — applies whether we're still mid-strike or already in recovery
+        if (player && !player.strikeResolved && (player.phase === 'windup' || player.phase === 'strike' || player.phase === 'recovery')) {
+          clearAttackerFallback(player);
+          // Mirror opponent's streak for HUD accuracy
+          if (msg.isSuper) enemy.parryStreak = 0;
+          else enemy.parryStreak = Math.min(PARRY_FOR_SUPER - 1, (enemy.parryStreak || 0) + 1);
+          applyParryAgainst(player, enemy, now, !!msg.isSuper);
+        }
+        break;
+      case 'hit':
+        // Opponent failed to parry our attack -> they took the hit
+        if (player && !player.strikeResolved && (player.phase === 'windup' || player.phase === 'strike' || player.phase === 'recovery')) {
+          clearAttackerFallback(player);
+          applyHitAgainst(player, enemy, now);
+        }
+        break;
+      case 'sync_hp':
+        if (typeof msg.myHp === 'number' && enemy) enemy.hp = Math.max(0, Math.min(MAX_HP, msg.myHp));
+        break;
+      case 'hello':
+        net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
+        if (enemy) enemy.username = net.opponentName;
+        break;
+    }
+  }
+
+  // ---------- Attack lifecycle (shared) ----------
+  function startAttack(f, now) {
+    f.phase = 'windup';
+    f.phaseStart = now;
+    f.strikeResolved = false;
+    if (gameMode === 'ai' && f.side === 'player') {
+      var willParry = Math.random() < aiParryChance(now);
+      f.aiWillParryThis = willParry;
+      var strikeAt = now + WINDUP_MS;
+      var range = PARRY_WINDOW_BEFORE_STRIKE_MS + PARRY_WINDOW_AFTER_STRIKE_MS;
+      var offset = -PARRY_WINDOW_BEFORE_STRIKE_MS + Math.random() * range;
+      f.aiParryAt = strikeAt + offset;
+    } else {
+      f.aiWillParryThis = false;
+      f.aiParryAt = 0;
+    }
+    if (gameMode === 'online' && f.side === 'player') {
+      netSend({ type: 'attack_start' });
+    }
+  }
+
+  function startAttackVisual(f, now) {
+    // For online: opponent's attack mirrored locally without AI fields
+    f.phase = 'windup';
+    f.phaseStart = now;
+    f.strikeResolved = false;
+    f.aiWillParryThis = false;
+    f.aiParryAt = 0;
+  }
+
+  function transitionPhase(f, now) {
+    var elapsed = now - f.phaseStart;
+    if (f.phase === 'windup' && elapsed >= WINDUP_MS) {
+      f.phase = 'strike';
+      f.phaseStart = now;
+    } else if (f.phase === 'strike' && elapsed >= STRIKE_MS) {
+      if (!f.strikeResolved) {
+        if (gameMode === 'tutorial') {
+          // Tutorial: no damage to player, just visual miss
+          if (f.side === 'enemy') {
+            player.parryStreak = 0;
+            player.hurtFlash = 0.5;
+            addPopup(player, 'MISS', '#888');
+            shake = Math.max(shake, 6);
+          }
+          f.strikeResolved = true;
+        } else if (gameMode === 'ai') {
+          resolveStrike(f, now);
+        } else {
+          // online: if this fighter is the local player and it wasn't parried, opponent will tell us via net.
+          // if this fighter is the enemy and the local player didn't parry it, the local player takes the hit and tells the opponent.
+          if (f.side === 'enemy') {
+            // Enemy's strike landed on us locally — apply damage, notify opponent
+            playerTakesHit(now);
+            f.strikeResolved = true;
+          } else {
+            // Player's strike — wait for opponent's verdict (parry/hit message)
+            // Do NOT set strikeResolved; the opponent's reply or fallback will set it
+            scheduleAttackerFallback(f, now);
+          }
+        }
+      }
+      f.phase = 'recovery';
+      f.phaseStart = now;
+    } else if (f.phase === 'recovery' && elapsed >= RECOVERY_MS) {
+      f.phase = 'idle';
+      f.phaseStart = now;
+      if (gameMode === 'tutorial') {
+        if (f.side === 'enemy') f.nextAttackAt = now + 2200;
+        else f.nextAttackAt = Infinity; // player never auto-attacks in tutorial
+      } else if (gameMode === 'ai' || (gameMode === 'online' && f.side === 'player')) {
+        f.nextAttackAt = now + ATTACK_INTERVAL_MS + (Math.random() - 0.5) * ATTACK_INTERVAL_JITTER_MS;
+      } else {
+        f.nextAttackAt = Infinity;
+      }
+    }
+  }
+
+  // Online fallback: if opponent never responds, count as hit after grace period
+  var pendingAttackerFallbacks = [];
+  function scheduleAttackerFallback(attacker, now) {
+    var deadline = now + 800;
+    pendingAttackerFallbacks.push({ attacker: attacker, deadline: deadline });
+  }
+  function clearAttackerFallback(attacker) {
+    for (var i = pendingAttackerFallbacks.length - 1; i >= 0; i--) {
+      if (pendingAttackerFallbacks[i].attacker === attacker) pendingAttackerFallbacks.splice(i, 1);
+    }
+  }
+  function tickAttackerFallbacks(now) {
+    for (var i = pendingAttackerFallbacks.length - 1; i >= 0; i--) {
+      var f = pendingAttackerFallbacks[i];
+      if (now >= f.deadline) {
+        pendingAttackerFallbacks.splice(i, 1);
+        // Skip if already resolved by network response
+        if (f.attacker.strikeResolved) continue;
+        if (gameState !== STATE_PLAYING || !enemy || enemy.hp <= 0) continue;
+        f.attacker.strikeResolved = true;
+        enemy.hp = Math.max(0, enemy.hp - HIT_DAMAGE);
+        enemy.hurtFlash = 1;
+        enemy.parryStreak = 0;
+        addFlash(enemy, '#ff5555', 80);
+        addPopup(enemy, 'HIT', '#ff7070');
+        shake = Math.max(shake, 10);
+        bgFlash = Math.max(bgFlash, 0.3);
+        playHit();
+        if (player) player.hitsDealt++;
+        checkEnd();
+      }
+    }
+  }
+
+  // ---------- AI mode resolution ----------
+  function resolveStrike(attacker, now) {
+    var defender = attacker.side === 'player' ? enemy : player;
+    defender.hp = Math.max(0, defender.hp - HIT_DAMAGE);
+    defender.hurtFlash = 1;
+    defender.parryStreak = 0;
+    defender.hitsTaken++;
+    attacker.hitsDealt++;
+    addFlash(defender, '#ff5555', 80);
+    addPopup(defender, 'HIT', '#ff7070');
+    shake = Math.max(shake, 12);
+    bgFlash = Math.max(bgFlash, 0.35);
+    playHit();
+    attacker.strikeResolved = true;
+    checkEnd();
+  }
+
+  function aiParryChance(now) {
+    var t = (now - matchStartTime) / MATCH_TIME_MS;
+    if (t < 0) t = 0; if (t > 1) t = 1;
+    return 0.30 + 0.45 * t;
+  }
+
+  // ---------- Parry resolution ----------
+  function applyParryAgainst(attacker, defender, now, isSuper) {
+    // attacker = the fighter who was attacking; defender = the parrier
+    attacker.strikeResolved = true;
+    attacker.phase = 'recovery';
+    attacker.phaseStart = now;
+    attacker.recoilT = 1; attacker.recoilAt = now;
+    var dmg = isSuper ? SUPER_DAMAGE : PARRY_DAMAGE;
+    attacker.hp = Math.max(0, attacker.hp - dmg);
+    attacker.hurtFlash = 1;
+    defender.shieldRaiseT = 1; defender.shieldRaiseAt = now;
+    defender.parryCount++;
+    if (isSuper) defender.superCount++;
+    addFlash(defender, '#ffffff', isSuper ? 220 : 120);
+    addFlash(attacker, isSuper ? '#ffd34d' : '#ffffff', isSuper ? 180 : 90);
+    addPopup(defender, isSuper ? 'SUPER!' : 'PARRY!', isSuper ? '#ffd34d' : '#ffffff');
+    addParrySparks(defender, attacker, isSuper);
+    shake = Math.max(shake, isSuper ? 26 : 18);
+    bgFlash = Math.max(bgFlash, isSuper ? 0.7 : 0.5);
+    if (isSuper) playSuper(); else playClang();
+    checkEnd();
+  }
+
+  function applyHitAgainst(attacker, defender, now) {
+    // Opponent confirmed our strike landed on them (online)
+    attacker.strikeResolved = true;
+    defender.hp = Math.max(0, defender.hp - HIT_DAMAGE);
+    defender.hurtFlash = 1;
+    defender.parryStreak = 0;
+    defender.hitsTaken++;
+    attacker.hitsDealt++;
+    addFlash(defender, '#ff5555', 80);
+    addPopup(defender, 'HIT', '#ff7070');
+    shake = Math.max(shake, 10);
+    bgFlash = Math.max(bgFlash, 0.3);
+    playHit();
+    checkEnd();
+  }
+
+  function playerTakesHit(now) {
+    // Online: enemy's strike phase ended without being parried by player
+    player.hp = Math.max(0, player.hp - HIT_DAMAGE);
+    player.hurtFlash = 1;
+    player.parryStreak = 0;
+    player.hitsTaken++;
+    if (enemy) enemy.hitsDealt++;
+    addFlash(player, '#ff5555', 80);
+    addPopup(player, 'HIT', '#ff7070');
+    shake = Math.max(shake, 12);
+    bgFlash = Math.max(bgFlash, 0.35);
+    playHit();
+    netSend({ type: 'hit' });
+    checkEnd();
+  }
+
+  function attemptParry(defender, attacker, now) {
+    if (defender.inputLockUntil > now) return false;
+
+    if (attacker.phase !== 'windup' && attacker.phase !== 'strike') {
+      defender.inputLockUntil = now + WHIFF_LOCKOUT_MS;
+      defender.parryStreak = 0;
+      addPopup(defender, 'WHIFF', '#888');
+      playWhiff();
+      return false;
+    }
+    if (attacker.strikeResolved) {
+      defender.inputLockUntil = now + WHIFF_LOCKOUT_MS;
+      defender.parryStreak = 0;
+      addPopup(defender, 'WHIFF', '#888');
+      playWhiff();
+      return false;
+    }
+
+    var strikeStartAt = attacker.phase === 'windup'
+      ? attacker.phaseStart + WINDUP_MS
+      : attacker.phaseStart;
+    var ttStrike = strikeStartAt - now;
+
+    if (ttStrike <= PARRY_WINDOW_BEFORE_STRIKE_MS && ttStrike >= -PARRY_WINDOW_AFTER_STRIKE_MS) {
+      defender.parryStreak += 1;
+      var isSuper = false;
+      if (defender.parryStreak >= PARRY_FOR_SUPER) {
+        isSuper = true;
+        defender.parryStreak = 0;
+      }
+      applyParryAgainst(attacker, defender, now, isSuper);
+      if (gameMode === 'online' && defender.side === 'player') {
+        netSend({ type: 'parry', isSuper: isSuper });
+      }
+      return true;
+    } else {
+      defender.inputLockUntil = now + WHIFF_LOCKOUT_MS;
+      defender.parryStreak = 0;
+      addPopup(defender, 'WHIFF', '#888');
+      playWhiff();
+      return false;
+    }
+  }
+
+  function checkEnd() {
+    if (gameState !== STATE_PLAYING) return;
+    if (gameMode === 'tutorial') return;
+    if (player.hp <= 0 && enemy.hp <= 0) endMatch(false);
+    else if (enemy.hp <= 0) endMatch(true);
+    else if (player.hp <= 0) endMatch(false);
+  }
+
+  // ---------- Effects ----------
+  function getFighterPos(f) {
+    var groundY = cssH * 0.70;
+    var x = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
+    return { x: x, y: groundY };
+  }
+
+  function shieldImpactPos(defender) {
+    var p = getFighterPos(defender);
+    var facing = defender.side === 'player' ? 1 : -1;
+    return { x: p.x + facing * 60, y: p.y - 75 };
+  }
+
+  function addFlash(f, color, radius) {
+    var p = getFighterPos(f);
+    flashes.push({ x: p.x, y: p.y - 60, color: color, radius: radius, life: 280, max: 280 });
+  }
+  function addPopup(f, text, color) {
+    var p = getFighterPos(f);
+    popups.push({ x: p.x, y: p.y - 150, text: text, color: color, life: 750, max: 750 });
+  }
+  function addParrySparks(defender, attacker, isSuper) {
+    var pos = shieldImpactPos(defender);
+    var count = isSuper ? 28 : 18;
+    var color = isSuper ? '#ffd34d' : '#ffe4a0';
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 0.25 + Math.random() * 0.7;
+      sparks.push({
+        x: pos.x + (Math.random() - 0.5) * 6,
+        y: pos.y + (Math.random() - 0.5) * 6,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 0.15,
+        gravity: 0.0010,
+        life: 380 + Math.random() * 240,
+        max: 620,
+        color: color,
+        size: 1.5 + Math.random() * 2.4
+      });
+    }
+    // central burst flash ring
+    flashes.push({ x: pos.x, y: pos.y, color: '#ffffff', radius: isSuper ? 110 : 80, life: 220, max: 220 });
+  }
+
+  // ---------- Input ----------
+  function handleTap() {
+    ensureAudio();
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    attemptParry(player, enemy, now);
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    handleTap();
+  }, { passive: false });
+
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      if (gameState === STATE_PLAYING) {
+        e.preventDefault();
+        handleTap();
+      }
+    }
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (gameState === STATE_PLAYING) pausedAt = performance.now();
+    } else if (pausedAt && gameState === STATE_PLAYING) {
+      var delta = performance.now() - pausedAt;
+      matchStartTime += delta;
+      [player, enemy].forEach(function (f) {
+        if (!f) return;
+        f.nextAttackAt += delta;
+        f.phaseStart += delta;
+        f.inputLockUntil += delta;
+        f.aiParryAt += delta;
+        f.shieldRaiseAt += delta;
+        f.recoilAt += delta;
+      });
+      pendingAttackerFallbacks.forEach(function (p) { p.deadline += delta; });
+      pausedAt = 0;
+      lastTime = performance.now();
+    }
+  });
+
+  // ---------- Update ----------
+  function update(now, dt) {
+    if (gameState !== STATE_PLAYING) return;
+
+    var elapsed = now - matchStartTime;
+    if (gameMode !== 'tutorial' && elapsed >= MATCH_TIME_MS) {
+      endMatch(player.hp >= enemy.hp);
+      return;
+    }
+
+    [player, enemy].forEach(function (f) {
+      if (!f) return;
+      if (f.phase === 'idle') {
+        if (now >= f.nextAttackAt && f.hp > 0) startAttack(f, now);
+      } else {
+        transitionPhase(f, now);
+      }
+    });
+
+    // AI parry against player attack (AI mode only)
+    if (gameMode === 'ai' && player && enemy && enemy.hp > 0 &&
+        (player.phase === 'windup' || player.phase === 'strike') &&
+        !player.strikeResolved && player.aiWillParryThis &&
+        now >= player.aiParryAt) {
+      attemptParry(enemy, player, now);
+      player.aiWillParryThis = false;
+    }
+
+    // Online attacker fallbacks
+    if (gameMode === 'online') tickAttackerFallbacks(now);
+
+    // Tutorial controllers
+    if (gameMode === 'tutorial') {
+      tutorialAiTick(now);
+      tickTutorial(now);
+    }
+
+    // Decay effects
+    for (var i = flashes.length - 1; i >= 0; i--) {
+      flashes[i].life -= dt;
+      if (flashes[i].life <= 0) flashes.splice(i, 1);
+    }
+    for (var j = popups.length - 1; j >= 0; j--) {
+      popups[j].life -= dt;
+      popups[j].y -= dt * 0.04;
+      if (popups[j].life <= 0) popups.splice(j, 1);
+    }
+    for (var k = sparks.length - 1; k >= 0; k--) {
+      var s = sparks[k];
+      s.life -= dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += s.gravity * dt;
+      if (s.life <= 0) sparks.splice(k, 1);
+    }
+    if (shake > 0) shake = Math.max(0, shake - dt * 0.06);
+    if (bgFlash > 0) bgFlash = Math.max(0, bgFlash - dt * 0.003);
+    [player, enemy].forEach(function (f) {
+      if (!f) return;
+      if (f.hurtFlash > 0) f.hurtFlash = Math.max(0, f.hurtFlash - dt * 0.005);
+      if (f.shieldRaiseT > 0) {
+        var srE = now - f.shieldRaiseAt;
+        f.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_RAISE_MS);
+      }
+      if (f.recoilT > 0) {
+        var rcE = now - f.recoilAt;
+        f.recoilT = Math.max(0, 1 - rcE / RECOIL_MS);
+      }
+    });
+  }
+
+  // ---------- Drawing ----------
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  function hexA(hex, a) {
+    var h = hex.replace('#', '');
+    if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    var r = parseInt(h.substring(0, 2), 16);
+    var g = parseInt(h.substring(2, 4), 16);
+    var b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  function drawBg() {
+    var g = ctx.createLinearGradient(0, 0, 0, cssH);
+    g.addColorStop(0, '#1a1230');
+    g.addColorStop(1, '#0a0a14');
+    ctx.fillStyle = g;
+    ctx.fillRect(-50, -50, cssW + 100, cssH + 100);
+    if (bgFlash > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (bgFlash * 0.25) + ')';
+      ctx.fillRect(-50, -50, cssW + 100, cssH + 100);
+    }
+  }
+
+  function drawFloor() {
+    var groundY = cssH * 0.70 + 50;
+    var grad = ctx.createLinearGradient(0, groundY, 0, cssH);
+    grad.addColorStop(0, '#2a2244');
+    grad.addColorStop(1, '#0a0a14');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-50, groundY, cssW + 100, cssH - groundY + 100);
+  }
+
+  function drawSword(c) {
+    // Anchored at hand (0,0); blade extends along +x
+    // Pommel
+    c.fillStyle = '#b89640';
+    c.beginPath();
+    c.arc(0, 0, 5, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = '#5a4520'; c.lineWidth = 1; c.stroke();
+    // Grip (wrapped leather)
+    c.fillStyle = '#3a2a18';
+    c.fillRect(0, -3.5, 14, 7);
+    c.fillStyle = '#1a0e08';
+    for (var i = 0; i < 4; i++) c.fillRect(2 + i * 3, -3.5, 1, 7);
+    // Cross-guard
+    c.fillStyle = '#cca860';
+    c.fillRect(14, -11, 5, 22);
+    c.fillStyle = '#7a5e28';
+    c.fillRect(14, 9, 5, 2);
+    // Blade — tapered, gradient
+    var grad = c.createLinearGradient(0, -4, 0, 4);
+    grad.addColorStop(0, '#8a96a0');
+    grad.addColorStop(0.5, '#f0f5fa');
+    grad.addColorStop(1, '#7a8690');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.moveTo(19, -4);
+    c.lineTo(19, 4);
+    c.lineTo(58, 2);
+    c.lineTo(64, 0);
+    c.lineTo(58, -2);
+    c.closePath();
+    c.fill();
+    // Edge highlight
+    c.strokeStyle = 'rgba(255,255,255,0.7)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(20, -1.5);
+    c.lineTo(58, -1);
+    c.stroke();
+    // Fuller (groove)
+    c.strokeStyle = 'rgba(0,0,0,0.25)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(22, 0);
+    c.lineTo(56, 0);
+    c.stroke();
+  }
+
+  function drawShield(c, glow) {
+    // Round buckler centered at (0,0)
+    if (glow > 0) {
+      var gg = c.createRadialGradient(0, 0, 6, 0, 0, 40);
+      gg.addColorStop(0, 'rgba(255,240,160,' + (0.7 * glow) + ')');
+      gg.addColorStop(1, 'rgba(255,240,160,0)');
+      c.fillStyle = gg;
+      c.beginPath();
+      c.arc(0, 0, 40, 0, Math.PI * 2);
+      c.fill();
+    }
+    // wood face
+    var grd = c.createRadialGradient(-4, -4, 2, 0, 0, 18);
+    grd.addColorStop(0, '#8a4d28');
+    grd.addColorStop(1, '#4a2810');
+    c.fillStyle = grd;
+    c.beginPath();
+    c.arc(0, 0, 18, 0, Math.PI * 2);
+    c.fill();
+    // metal rim
+    c.strokeStyle = '#b89640';
+    c.lineWidth = 3;
+    c.stroke();
+    c.strokeStyle = '#5a4520';
+    c.lineWidth = 1;
+    c.stroke();
+    // boss
+    c.fillStyle = '#cca860';
+    c.beginPath();
+    c.arc(0, 0, 5.5, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = '#5a4520'; c.lineWidth = 1; c.stroke();
+    // Cross of rivets
+    c.fillStyle = '#8a7030';
+    [-12, 12].forEach(function (d) {
+      c.beginPath(); c.arc(d, 0, 1.6, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(0, d, 1.6, 0, Math.PI * 2); c.fill();
+    });
+  }
+
+  function drawFighter(f, now) {
+    var p = getFighterPos(f);
+    var facing = f.side === 'player' ? 1 : -1;
+    var baseColor = f.side === 'player' ? '#4dd6ff' : '#ff5d7e';
+    var darkColor = f.side === 'player' ? '#2a8fbf' : '#c4364f';
+    var trim = f.side === 'player' ? '#1a3f55' : '#5a1f30';
+    var capeColor = f.side === 'player' ? '#1a4f6d' : '#6b1a30';
+    var capeColorDark = f.side === 'player' ? '#0c2a3c' : '#3c0f1c';
+
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 50, 60, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // windup glow — player team color for own attacks, red threat for enemy
+    if (f.phase === 'windup') {
+      var t = (now - f.phaseStart) / WINDUP_MS;
+      if (t < 0) t = 0; if (t > 1) t = 1;
+      var alpha = 0.15 + 0.55 * t;
+      var r = 70 + 50 * t;
+      var glowRGB = f.side === 'enemy' ? '255,70,70' : '120,180,255';
+      var grd = ctx.createRadialGradient(p.x, p.y - 30, 10, p.x, p.y - 30, r);
+      grd.addColorStop(0, 'rgba(' + glowRGB + ',' + alpha + ')');
+      grd.addColorStop(1, 'rgba(' + glowRGB + ',0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 30, r, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (f.phase === 'strike') {
+      var strikeRGB = f.side === 'enemy' ? '255,200,80' : '180,230,255';
+      var grd2 = ctx.createRadialGradient(p.x, p.y - 30, 10, p.x, p.y - 30, 150);
+      grd2.addColorStop(0, 'rgba(' + strikeRGB + ',0.7)');
+      grd2.addColorStop(1, 'rgba(' + strikeRGB + ',0)');
+      ctx.fillStyle = grd2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 30, 150, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    // Recoil offset (for being parried)
+    if (f.recoilT > 0) {
+      var rk = f.recoilT;
+      ctx.translate(-facing * 8 * rk, -3 * rk);
+    }
+
+    // ---- Cape (drawn first, behind body) ----
+    var capeSway = Math.sin(now * 0.003 + (f.side === 'player' ? 0 : Math.PI)) * 4;
+    var capeFlare = (f.phase === 'strike' ? 14 : 0) + (f.recoilT > 0 ? -8 * f.recoilT : 0);
+    ctx.fillStyle = capeColor;
+    ctx.beginPath();
+    ctx.moveTo(-facing * 14, -76);
+    ctx.bezierCurveTo(-facing * (28 + capeFlare), -50, -facing * (38 + capeSway), -10, -facing * (32 + capeSway * 0.5), 30);
+    ctx.lineTo(-facing * (10 + capeSway * 0.3), 36);
+    ctx.bezierCurveTo(-facing * 6, 0, -facing * 10, -36, -facing * 4, -76);
+    ctx.closePath();
+    ctx.fill();
+    // cape inner shadow
+    ctx.fillStyle = capeColorDark;
+    ctx.beginPath();
+    ctx.moveTo(-facing * 8, -76);
+    ctx.bezierCurveTo(-facing * 14, -36, -facing * 18, 0, -facing * (16 + capeSway * 0.3), 30);
+    ctx.lineTo(-facing * (10 + capeSway * 0.3), 36);
+    ctx.bezierCurveTo(-facing * 6, 0, -facing * 10, -36, -facing * 4, -76);
+    ctx.closePath();
+    ctx.fill();
+
+    // ---- Legs with greaves ----
+    ctx.fillStyle = trim;
+    ctx.fillRect(-22, -8, 14, 50);
+    ctx.fillRect(8, -8, 14, 50);
+    // greaves (metal shin guards)
+    ctx.fillStyle = '#a8b0bb';
+    roundRect(ctx, -22, 14, 14, 28, 3); ctx.fill();
+    roundRect(ctx, 8, 14, 14, 28, 3); ctx.fill();
+    ctx.strokeStyle = '#5a606a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-15, 22); ctx.lineTo(-15, 38); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(15, 22); ctx.lineTo(15, 38); ctx.stroke();
+
+    // ---- Body with breathing animation ----
+    var breathe = (f.phase === 'idle' ? 1 + Math.sin(now * 0.004) * 0.015 : 1);
+    ctx.save();
+    ctx.scale(1, breathe);
+    var bodyFill = baseColor;
+    if (f.hurtFlash > 0) bodyFill = 'rgba(255,255,255,' + (0.5 + 0.5 * f.hurtFlash) + ')';
+    // Body gradient
+    var bodyGrad = ctx.createLinearGradient(-32, -70, 32, 0);
+    bodyGrad.addColorStop(0, bodyFill);
+    bodyGrad.addColorStop(0.6, bodyFill);
+    bodyGrad.addColorStop(1, f.hurtFlash > 0 ? bodyFill : darkColor);
+    ctx.fillStyle = bodyGrad;
+    roundRect(ctx, -32, -70, 64, 70, 12);
+    ctx.fill();
+    // chest emblem (diamond shape)
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(0, -56); ctx.lineTo(10, -42); ctx.lineTo(0, -28); ctx.lineTo(-10, -42);
+    ctx.closePath(); ctx.fill();
+    // body trim (collar)
+    ctx.fillStyle = trim;
+    roundRect(ctx, -28, -68, 56, 8, 4);
+    ctx.fill();
+    // belt
+    ctx.fillStyle = '#6a4818';
+    ctx.fillRect(-32, -10, 64, 6);
+    ctx.fillStyle = '#cca860';
+    ctx.fillRect(-4, -10, 8, 6);
+    ctx.restore();
+
+    // ---- Shoulder pads (drawn after body so they sit on top) ----
+    ctx.fillStyle = '#a8b0bb';
+    roundRect(ctx, -34, -72, 18, 14, 5); ctx.fill();
+    roundRect(ctx, 16, -72, 18, 14, 5); ctx.fill();
+    ctx.strokeStyle = '#5a606a'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(-25, -65, 8, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(25, -65, 8, Math.PI, 0); ctx.stroke();
+
+    // ---- Head ----
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath();
+    ctx.arc(0, -90, 22, 0, Math.PI * 2);
+    ctx.fill();
+    // chin shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.arc(0, -82, 22, 0, Math.PI);
+    ctx.fill();
+
+    // ---- Helmet (full top + plume) ----
+    ctx.fillStyle = '#7d8590';
+    ctx.beginPath();
+    ctx.arc(0, -90, 22, Math.PI, 0);
+    ctx.lineTo(20, -98);
+    ctx.lineTo(-20, -98);
+    ctx.closePath();
+    ctx.fill();
+    // helmet shine
+    var helmGrad = ctx.createLinearGradient(0, -112, 0, -90);
+    helmGrad.addColorStop(0, 'rgba(255,255,255,0.45)');
+    helmGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = helmGrad;
+    ctx.beginPath();
+    ctx.arc(0, -90, 22, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    // helmet rim
+    ctx.fillStyle = '#3a3f48';
+    ctx.fillRect(-22, -90, 44, 4);
+    // brow piece (T-bar)
+    ctx.fillStyle = '#3a3f48';
+    ctx.fillRect(-3, -100, 6, 14);
+    // plume (feather)
+    var plumeColor = baseColor;
+    ctx.save();
+    ctx.translate(0, -112);
+    var plumeSway = Math.sin(now * 0.005) * 0.15;
+    ctx.rotate(plumeSway);
+    ctx.fillStyle = plumeColor;
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.bezierCurveTo(-10, -8, -6, -22, 0, -28);
+    ctx.bezierCurveTo(6, -22, 10, -8, 4, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = darkColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -2);
+    ctx.lineTo(0, -26);
+    ctx.lineTo(2, -22);
+    ctx.lineTo(2, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // ---- Eyes (visor slits) ----
+    ctx.fillStyle = '#0a0a14';
+    ctx.fillRect(facing * 2 - 3, -94, 5, 4);
+    ctx.fillRect(facing * 10 - 3, -94, 5, 4);
+    // eye glow
+    ctx.fillStyle = facing === 1 ? 'rgba(150,210,255,0.7)' : 'rgba(255,150,170,0.7)';
+    ctx.fillRect(facing * 2 - 2, -93, 3, 2);
+    ctx.fillRect(facing * 10 - 2, -93, 3, 2);
+
+    // ---- Off-arm with shield ----
+    var shieldGlow = f.shieldRaiseT;
+    // Lerp angle from resting (0.5 = forward+down) to block (-0.7 = forward+up) by shieldRaiseT
+    var offArmAngle = 0.5 - 1.2 * f.shieldRaiseT;
+    ctx.save();
+    // Off-shoulder slightly back from center
+    ctx.translate(-facing * 8, -52);
+    ctx.scale(facing, 1);
+    ctx.rotate(offArmAngle);
+    ctx.fillStyle = trim;
+    roundRect(ctx, 0, -7, 36, 14, 6);
+    ctx.fill();
+    // forearm shading (small darker stripe)
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(2, -7, 32, 3);
+    ctx.translate(36, 0);
+    drawShield(ctx, shieldGlow);
+    ctx.restore();
+
+    // ---- Main arm with sword ----
+    var armAngle = 0;
+    if (f.phase === 'windup') {
+      var tw = (now - f.phaseStart) / WINDUP_MS;
+      if (tw > 1) tw = 1;
+      armAngle = -1.2 * tw;
+    } else if (f.phase === 'strike') {
+      var ts = (now - f.phaseStart) / STRIKE_MS;
+      if (ts > 1) ts = 1;
+      armAngle = -1.2 + 2.6 * ts;
+    } else if (f.phase === 'recovery') {
+      var tr = (now - f.phaseStart) / RECOVERY_MS;
+      if (tr > 1) tr = 1;
+      armAngle = 1.4 * (1 - tr);
+    }
+    if (f.recoilT > 0) {
+      // sword pushed back
+      armAngle += -0.4 * f.recoilT;
+    }
+    ctx.save();
+    ctx.translate(facing * 22, -52);
+    ctx.scale(facing, 1);
+    // Sword swoosh trail during strike (drawn in arm-anchor frame, before the arm)
+    if (f.phase === 'strike') {
+      var ts = (now - f.phaseStart) / STRIKE_MS;
+      if (ts > 1) ts = 1;
+      var startA = -1.2;
+      var curA = -1.2 + 2.6 * ts;
+      ctx.strokeStyle = 'rgba(255,255,220,0.30)';
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, 0, 96, startA, curA);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 100, startA, curA);
+      ctx.stroke();
+    }
+    ctx.rotate(armAngle);
+    ctx.fillStyle = trim;
+    roundRect(ctx, 0, -8, 42, 16, 7);
+    ctx.fill();
+    // hand
+    ctx.fillStyle = baseColor;
+    ctx.beginPath();
+    ctx.arc(42, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    // sword (anchored at hand)
+    ctx.translate(42, 0);
+    drawSword(ctx);
+    ctx.restore();
+
+    ctx.restore();
+
+    // input lock ring (player only)
+    if (f.side === 'player' && f.inputLockUntil > now) {
+      var rem = (f.inputLockUntil - now) / WHIFF_LOCKOUT_MS;
+      if (rem > 1) rem = 1;
+      ctx.strokeStyle = 'rgba(255,80,80,' + rem + ')';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + 50, 50, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function drawFlashes() {
+    for (var i = 0; i < flashes.length; i++) {
+      var f = flashes[i];
+      var t = f.life / f.max;
+      var r = f.radius * (1 - t) + 10;
+      ctx.strokeStyle = hexA(f.color, t);
+      ctx.lineWidth = 6 * t;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function drawSparks() {
+    for (var i = 0; i < sparks.length; i++) {
+      var s = sparks[i];
+      var t = s.life / s.max;
+      ctx.fillStyle = hexA(s.color, t);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size * (0.4 + 0.6 * t), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawPopups() {
+    for (var i = 0; i < popups.length; i++) {
+      var p = popups[i];
+      var t = p.life / p.max;
+      ctx.fillStyle = hexA(p.color, t);
+      ctx.font = '900 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+  }
+
+  function drawHud(now) {
+    if (gameMode !== 'tutorial') {
+      var barW = Math.min(cssW * 0.4, 320);
+      var youLabel = (gameMode === 'online') ? (profile.username || 'YOU') : 'YOU';
+      var rivalLabel = (gameMode === 'online') ? (enemy.username || net.opponentName || 'RIVAL') : 'AI';
+      drawHpBar(20, 20, barW, 22, player.hp / MAX_HP, '#4dd6ff', youLabel, false);
+      drawHpBar(cssW - 20 - barW, 20, barW, 22, enemy.hp / MAX_HP, '#ff5d7e', rivalLabel, true);
+      drawStreakDots(20, 50, player.parryStreak, '#fff', false);
+      drawStreakDots(cssW - 20 - 90, 50, enemy.parryStreak, '#fff', true);
+    } else {
+      // Tutorial: only show player's parry streak (centered low for visibility)
+      var sx = (cssW - PARRY_FOR_SUPER * 28) / 2;
+      drawStreakDots(sx, cssH - 90, player.parryStreak, '#ffd34d', false);
+    }
+
+    if (gameMode !== 'tutorial') {
+      var remaining = Math.max(0, MATCH_TIME_MS - (now - matchStartTime));
+      var sec = Math.ceil(remaining / 1000);
+      ctx.fillStyle = '#fff';
+      ctx.font = '900 36px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(String(sec), cssW / 2, 14);
+
+      if (now - matchStartTime < 4500) {
+        var fade = 1 - (now - matchStartTime) / 4500;
+        if (fade < 0) fade = 0;
+        ctx.fillStyle = 'rgba(255,255,255,' + fade + ')';
+        ctx.font = '700 18px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('TAP THE INSTANT BEFORE THE STRIKE', cssW / 2, cssH - 40);
+      }
+    }
+  }
+
+  function drawHpBar(x, y, w, h, frac, color, label, alignRight) {
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    roundRect(ctx, x, y, w, h, 6);
+    ctx.fill();
+    var fw = Math.max(0, Math.min(w, w * frac));
+    if (fw > 0) {
+      ctx.fillStyle = color;
+      if (alignRight) roundRect(ctx, x + w - fw, y, fw, h, 6);
+      else roundRect(ctx, x, y, fw, h, 6);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#fff';
+    ctx.font = '800 12px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.textAlign = alignRight ? 'right' : 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, alignRight ? x + w - 6 : x + 6, y + h / 2);
+  }
+
+  function drawStreakDots(x, y, streak, color, alignRight) {
+    for (var i = 0; i < PARRY_FOR_SUPER; i++) {
+      var cx = alignRight ? x + 90 - i * 28 : x + i * 28;
+      ctx.beginPath();
+      ctx.arc(cx + 8, y + 8, 8, 0, Math.PI * 2);
+      ctx.fillStyle = i < streak ? color : 'rgba(255,255,255,0.18)';
+      ctx.fill();
+    }
+  }
+
+  function render(now) {
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    drawBg();
+    drawFloor();
+    if (gameState === STATE_PLAYING || gameState === STATE_GAMEOVER) {
+      drawFighter(enemy, now);
+      drawFighter(player, now);
+      drawSparks();
+      drawFlashes();
+      drawPopups();
+    }
+    if (gameState === STATE_PLAYING) drawHud(now);
+    ctx.restore();
+  }
+
+  function loop(now) {
+    if (!lastTime) lastTime = now;
+    var dt = now - lastTime;
+    if (dt > 100) dt = 100;
+    lastTime = now;
+    update(now, dt);
+    ctx.clearRect(0, 0, cssW, cssH);
+    render(now);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- Badge rendering ----------
+  function renderBadge(el, rank) {
+    if (!el) return;
+    // Reset tier classes
+    el.classList.remove('bronze','silver','gold','platinum','diamond','champion','apex');
+    el.classList.add(rank.class);
+    var starsEl = el.querySelector('.stars');
+    if (starsEl) {
+      var stars = '';
+      for (var i = 0; i < rank.divisions; i++) {
+        stars += i < (rank.divisions - rank.division + 1) ? '★' : '☆';
+      }
+      starsEl.textContent = stars;
+    }
+  }
+
+  function updateModeRankWidget() {
+    var rank = computeRank(profile.rp);
+    var badge = document.getElementById('modeBadge');
+    var name = document.getElementById('modeRankName');
+    var rp = document.getElementById('modeRankRp');
+    var fill = document.getElementById('modeRpFill');
+    var career = document.getElementById('modeCareer');
+    var usernameEl = document.getElementById('modeUsername');
+    renderBadge(badge, rank);
+    var label = rank.divisions > 1 ? rank.name + ' ' + divisionRoman(rank.division) : rank.name;
+    name.textContent = label;
+    usernameEl.textContent = profile.username;
+    if (rank.isMax) {
+      rp.textContent = profile.rp + ' RP — MAX TIER';
+      fill.style.width = '100%';
+    } else {
+      rp.textContent = rank.rpInDiv + ' / ' + rank.rpForNext + ' RP';
+      fill.style.width = (rank.percent * 100).toFixed(1) + '%';
+    }
+    career.innerHTML = '';
+    var s = profile.stats;
+    var parts = [
+      s.matches + ' MATCHES',
+      s.wins + ' WINS',
+      s.parries + ' PARRIES',
+      s.supers + ' SUPERS'
+    ];
+    parts.forEach(function (t) {
+      var sp = document.createElement('span');
+      sp.textContent = t;
+      career.appendChild(sp);
+    });
+  }
+
+  // ---------- Tutorial ----------
+  var TUTORIAL_STEPS = [
+    {
+      label: 'STEP 1 OF 4',
+      text: 'WATCH THE RED GLOW',
+      hint: 'Your rival lights up red just before they strike. Watch one swing.',
+      requiredParries: 0,
+      maxAttacks: 1
+    },
+    {
+      label: 'STEP 2 OF 4',
+      text: 'TAP THE INSTANT BEFORE THE STRIKE',
+      hint: 'Tap to parry one attack. Don\'t mash — wait for the perfect moment.',
+      requiredParries: 1,
+      maxAttacks: 5
+    },
+    {
+      label: 'STEP 3 OF 4',
+      text: 'STRING THREE PARRIES',
+      hint: 'Three in a row unleashes a SUPER for huge damage.',
+      requiredParries: 3,
+      maxAttacks: 8
+    },
+    {
+      label: 'STEP 4 OF 4',
+      text: 'YOU\'RE READY',
+      hint: 'Tap anywhere to finish.',
+      requiredParries: 0,
+      maxAttacks: 0,
+      complete: true
+    }
+  ];
+  var tutorialStep = 0;
+  var tutorialAttackCount = 0;
+  var tutorialParriesAtStep = 0;
+  var tutorialFinishTapAt = 0;
+
+  function startTutorial() {
+    profile.tutorialDone = true;
+    saveProfile();
+    tutorialStep = 0;
+    tutorialAttackCount = 0;
+    tutorialParriesAtStep = 0;
+    tutorialFinishTapAt = 0;
+    startMatch('tutorial');
+    document.getElementById('tutorialBanner').classList.remove('hidden');
+    document.getElementById('tutorialSkip').classList.remove('hidden');
+    showTutorialStep();
+  }
+
+  function showTutorialStep() {
+    var step = TUTORIAL_STEPS[tutorialStep];
+    document.getElementById('tutStepLabel').textContent = step.label;
+    document.getElementById('tutStepText').textContent = step.text;
+    document.getElementById('tutStepHint').textContent = step.hint;
+    tutorialAttackCount = 0;
+    tutorialParriesAtStep = (player ? player.parryCount : 0);
+    if (step.complete) {
+      tutorialFinishTapAt = performance.now();
+    }
+  }
+
+  function tickTutorial(now) {
+    if (gameMode !== 'tutorial' || gameState !== STATE_PLAYING) return;
+    var step = TUTORIAL_STEPS[tutorialStep];
+    if (!step) return;
+    if (step.complete) {
+      // Wait a moment then accept any tap to exit (handled in handleTap)
+      return;
+    }
+    var earnedParries = (player.parryCount - tutorialParriesAtStep);
+    var advance = false;
+    if (step.requiredParries > 0 && earnedParries >= step.requiredParries) advance = true;
+    else if (step.requiredParries === 0 && tutorialAttackCount >= step.maxAttacks && enemy.phase === 'idle') advance = true;
+    else if (step.maxAttacks > 0 && tutorialAttackCount >= step.maxAttacks && enemy.phase === 'idle') advance = true;
+    if (advance) {
+      tutorialStep++;
+      if (tutorialStep >= TUTORIAL_STEPS.length) {
+        finishTutorial();
+      } else {
+        showTutorialStep();
+      }
+    }
+  }
+
+  function finishTutorial() {
+    document.getElementById('tutorialBanner').classList.add('hidden');
+    document.getElementById('tutorialSkip').classList.add('hidden');
+    gameState = STATE_GAMEOVER;
+    endReason = 'Tutorial complete! Try a real match.';
+    showGameOver(true, /*tutorial*/ true);
+  }
+
+  function skipTutorial() {
+    document.getElementById('tutorialBanner').classList.add('hidden');
+    document.getElementById('tutorialSkip').classList.add('hidden');
+    netCleanup();
+    goToMode();
+  }
+
+  // Tutorial-controlled enemy attacks (called from update loop)
+  function tutorialAiTick(now) {
+    if (gameMode !== 'tutorial' || gameState !== STATE_PLAYING) return;
+    var step = TUTORIAL_STEPS[tutorialStep];
+    if (!step || step.complete) return;
+    if (tutorialAttackCount >= step.maxAttacks) return;
+    if (enemy.phase === 'idle' && now >= enemy.nextAttackAt) {
+      // Slowed-down attack for tutorial
+      enemy.phase = 'windup';
+      enemy.phaseStart = now;
+      enemy.strikeResolved = false;
+      tutorialAttackCount++;
+    }
+  }
+
+  // ---------- Match lifecycle ----------
+  function startMatch(mode) {
+    gameMode = mode;
+    player = makeFighter('player');
+    enemy = makeFighter('enemy');
+    var now = performance.now();
+    matchStartTime = now;
+    lastTime = now;
+    if (mode === 'ai') {
+      player.nextAttackAt = now + 1300;
+      enemy.nextAttackAt = now + 1000;
+    } else if (mode === 'tutorial') {
+      player.nextAttackAt = Infinity;
+      enemy.nextAttackAt = now + 2000;
+    } else {
+      // online: each side schedules its own attacks; opponent's are net-driven
+      player.nextAttackAt = now + 1300 + Math.random() * 400;
+      enemy.nextAttackAt = Infinity;
+    }
+    flashes.length = 0; popups.length = 0; sparks.length = 0;
+    pendingAttackerFallbacks.length = 0;
+    shake = 0; bgFlash = 0; pausedAt = 0;
+    gameState = STATE_PLAYING;
+    hideAllScreens();
+
+    if (mode === 'online') {
+      net.onMessage = onNetMessage;
+      enemy.username = net.opponentName || 'RIVAL';
+    }
+  }
+
+  var endReason = '';
+  function endMatch(playerWon, reason) {
+    if (gameState === STATE_GAMEOVER) return;
+    gameState = STATE_GAMEOVER;
+    endReason = reason || '';
+    playEnd(playerWon);
+    showGameOver(playerWon);
+  }
+
+  // ---------- Screens ----------
+  function showScreen(name) {
+    var screens = document.querySelectorAll('.screen');
+    screens.forEach(function (s) {
+      if (s.getAttribute('data-screen') === name) s.classList.remove('hidden');
+      else s.classList.add('hidden');
+    });
+  }
+  function hideAllScreens() {
+    var screens = document.querySelectorAll('.screen');
+    screens.forEach(function (s) { s.classList.add('hidden'); });
+  }
+
+  function showGameOver(playerWon, isTutorial) {
+    var titleEl = document.getElementById('goTitle');
+    var msgEl = document.getElementById('goMsg');
+    var statsEl = document.getElementById('goStats');
+    var rematchBtn = document.getElementById('goRematchBtn');
+    var rankPanel = document.getElementById('goRankPanel');
+    var promoteEl = document.getElementById('goPromote');
+
+    if (isTutorial) {
+      titleEl.textContent = 'TUTORIAL COMPLETE';
+    } else {
+      titleEl.textContent = playerWon ? 'VICTORY' : 'DEFEAT';
+    }
+    var msg = playerWon ? 'Clean duel.' : 'Watch the rhythm. Tap the instant before the strike.';
+    if (gameMode === 'online' && (enemy && enemy.username)) {
+      msg = (playerWon ? 'You took down ' : 'Beaten by ') + enemy.username + '.';
+    }
+    if (endReason) msg = endReason;
+    msgEl.textContent = msg;
+
+    // Stats panel
+    statsEl.innerHTML = '';
+    if (player && !isTutorial) {
+      var stats = [
+        { label: 'Parries', value: player.parryCount },
+        { label: 'Supers', value: player.superCount },
+        { label: 'Hits Dealt', value: player.hitsDealt },
+        { label: 'Hits Taken', value: player.hitsTaken }
+      ];
+      stats.forEach(function (s) {
+        var el = document.createElement('span');
+        el.className = 'stat';
+        el.textContent = s.label + ': ' + s.value;
+        statsEl.appendChild(el);
+      });
+    }
+
+    // Commit lifetime stats for any non-tutorial match
+    if (!isTutorial && (gameMode === 'ai' || gameMode === 'online')) {
+      commitMatchStats();
+      if (playerWon) profile.stats.wins += 1;
+      saveProfile();
+    }
+
+    // Rank panel: only for online matches (ranked)
+    promoteEl.classList.add('hidden');
+    if (isTutorial || gameMode !== 'online') {
+      rankPanel.style.display = 'none';
+    } else {
+      rankPanel.style.display = '';
+      var oldRank = computeRank(profile.rp);
+      var awarded = awardMatchOutcome(playerWon, gameMode);
+      saveProfile();
+      var newRank = computeRank(profile.rp);
+
+      var deltaEl = document.getElementById('goRpDelta');
+      deltaEl.textContent = (awarded.delta >= 0 ? '+' : '') + awarded.delta + ' RP';
+      deltaEl.className = 'delta ' + (awarded.delta >= 0 ? 'up' : 'down');
+
+      var nameEl = document.getElementById('goRankName');
+      var label = newRank.divisions > 1 ? newRank.name + ' ' + divisionRoman(newRank.division) : newRank.name;
+      nameEl.textContent = label;
+
+      var rpEl = document.getElementById('goRankRp');
+      if (newRank.isMax) rpEl.textContent = profile.rp + ' RP — MAX TIER';
+      else rpEl.textContent = newRank.rpInDiv + ' / ' + newRank.rpForNext + ' RP';
+
+      var badge = document.getElementById('goBadge');
+      // Show OLD rank first, then animate to new
+      renderBadge(badge, oldRank);
+      var fill = document.getElementById('goRpFill');
+      fill.style.transition = 'none';
+      fill.style.width = (oldRank.percent * 100).toFixed(1) + '%';
+      // Force reflow then animate
+      void fill.offsetWidth;
+      setTimeout(function () {
+        fill.style.transition = '';
+        fill.style.width = (newRank.isMax ? 100 : newRank.percent * 100).toFixed(1) + '%';
+        renderBadge(badge, newRank);
+        // Promotion / demotion flash
+        if (newRank.tierIndex > oldRank.tierIndex) {
+          promoteEl.textContent = 'TIER UP — ' + newRank.name;
+          promoteEl.classList.remove('hidden');
+        } else if (newRank.tierIndex < oldRank.tierIndex) {
+          promoteEl.textContent = 'DEMOTED TO ' + newRank.name;
+          promoteEl.classList.remove('hidden');
+        } else if (newRank.division !== oldRank.division && newRank.divisions > 1) {
+          if (newRank.division < oldRank.division) {
+            promoteEl.textContent = 'PROMOTED — ' + newRank.name + ' ' + divisionRoman(newRank.division);
+            promoteEl.classList.remove('hidden');
+          }
+        }
+      }, 600);
+    }
+
+    rematchBtn.textContent = (gameMode === 'online' && net.connected) ? 'REMATCH' : 'PLAY AGAIN';
+    if (isTutorial) rematchBtn.textContent = 'CONTINUE';
+    showScreen('gameover');
+  }
+
+  function goToBoot() {
+    netCleanup();
+    gameState = STATE_BOOT;
+    showScreen('boot');
+  }
+  function goToMode() {
+    gameState = STATE_MENU_MODE;
+    showScreen('mode');
+    updateModeRankWidget();
+  }
+
+  function openSettings() {
+    var nameInput = document.getElementById('settingsName');
+    var soundBtn = document.getElementById('soundToggle');
+    nameInput.value = profile.username;
+    soundBtn.textContent = profile.soundOn ? 'ON' : 'OFF';
+    soundBtn.classList.toggle('off', !profile.soundOn);
+    showScreen('settings');
+  }
+  function saveSettingsAndBack() {
+    var nameInput = document.getElementById('settingsName');
+    var newName = (nameInput.value || '').trim().slice(0, 14).toUpperCase().replace(/[^A-Z0-9#_-]/g, '');
+    if (newName.length >= 2) profile.username = newName;
+    saveProfile();
+    goToMode();
+  }
+  function toggleSound() {
+    profile.soundOn = !profile.soundOn;
+    saveProfile();
+    var soundBtn = document.getElementById('soundToggle');
+    soundBtn.textContent = profile.soundOn ? 'ON' : 'OFF';
+    soundBtn.classList.toggle('off', !profile.soundOn);
+    if (profile.soundOn) ensureAudio();
+  }
+  function resetProfile() {
+    if (!confirm('Reset all rank, stats, and settings? This cannot be undone.')) return;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    profile = loadProfile();
+    openSettings();
+  }
+
+  function startMatchmaking() {
+    gameState = STATE_MATCHMAKING;
+    showScreen('matchmaking');
+    document.getElementById('mmFallback').classList.add('hidden');
+    var statusEl = document.getElementById('mmStatus');
+    statusEl.textContent = 'Connecting to lobby...';
+    function setStatus(s) { statusEl.textContent = s; }
+    findMatch(setStatus).then(function () {
+      if (gameState !== STATE_MATCHMAKING) return; // user canceled
+      // brief delay so user reads "Opponent found!"
+      setTimeout(function () {
+        if (gameState === STATE_MATCHMAKING) startMatch('online');
+      }, 700);
+    }).catch(function (err) {
+      if (gameState !== STATE_MATCHMAKING) return;
+      setStatus(err && err.message ? err.message : 'Search failed.');
+      document.getElementById('mmFallback').classList.remove('hidden');
+    });
+  }
+
+  function cancelMatchmaking() {
+    netCleanup();
+    goToMode();
+  }
+
+  // ---------- Click handlers ----------
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    ensureAudio();
+    var action = btn.getAttribute('data-action');
+    switch (action) {
+      case 'boot-play': goToMode(); break;
+      case 'mode-ai':
+        startMatch('ai');
+        break;
+      case 'mode-online':
+        startMatchmaking();
+        break;
+      case 'mm-cancel':
+        cancelMatchmaking();
+        break;
+      case 'mm-fallback-ai':
+        netCleanup();
+        startMatch('ai');
+        break;
+      case 'back-boot':
+        goToBoot();
+        break;
+      case 'go-rematch':
+        if (gameMode === 'tutorial') {
+          goToMode();
+        } else if (gameMode === 'online' && net.connected) {
+          netCleanup();
+          startMatchmaking();
+        } else {
+          startMatch('ai');
+        }
+        break;
+      case 'go-menu':
+        goToMode();
+        break;
+      case 'open-tutorial':
+        startTutorial();
+        break;
+      case 'tut-skip':
+        skipTutorial();
+        break;
+      case 'open-settings':
+      case 'edit-name':
+        openSettings();
+        break;
+      case 'settings-back':
+        saveSettingsAndBack();
+        break;
+      case 'toggle-sound':
+        toggleSound();
+        break;
+      case 'reset-profile':
+        resetProfile();
+        break;
+    }
+  });
+
+  // ---------- Init ----------
+  showScreen('boot');
+})();
+</script>
+</body>
+</html>
