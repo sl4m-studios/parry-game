@@ -144,6 +144,74 @@
   .toggle-btn.danger { background: #883333; color: #fff; }
   .toggle-btn.danger:hover { background: #aa3333; }
 
+  /* ---------- Skin grid ---------- */
+  .skin-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px; max-width: 760px; padding: 0 8px;
+  }
+  .skin-card {
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.10);
+    border-radius: 14px; padding: 14px 12px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer; transition: transform 0.15s, border-color 0.2s, background 0.2s;
+    position: relative; min-height: 220px;
+  }
+  .skin-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.10); }
+  .skin-card.equipped { border-color: #ffd34d; background: rgba(255,211,77,0.10); }
+  .skin-card.locked { opacity: 0.55; cursor: not-allowed; }
+  .skin-card.locked:hover { transform: none; }
+  .skin-card canvas { width: 110px; height: 130px; image-rendering: pixelated; }
+  .skin-card .skin-name {
+    font-weight: 800; font-size: 14px; letter-spacing: 0.05em;
+    color: #fff; text-align: center;
+  }
+  .skin-card .skin-unlock {
+    font-size: 11px; color: #aaa; letter-spacing: 0.04em;
+  }
+  .skin-card.equipped .skin-unlock { color: #ffd34d; font-weight: 700; }
+  .skin-card .lock-icon {
+    position: absolute; top: 8px; right: 10px;
+    font-size: 14px; color: #aaa;
+  }
+
+  /* ---------- In-game action buttons ---------- */
+  .action-btns {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between;
+    padding: 18px; pointer-events: none; z-index: 30;
+  }
+  .action-btns.hidden { display: none; }
+  .action-btn {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px; border: 0; cursor: pointer;
+    pointer-events: auto; touch-action: manipulation;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.45), 0 12px 24px rgba(0,0,0,0.4);
+    user-select: none; -webkit-user-select: none;
+    transition: transform 0.05s;
+    position: relative; overflow: hidden;
+  }
+  .action-btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,0.45); }
+  .action-btn.shield {
+    background: linear-gradient(160deg, #6ea2ff, #2a4f8c);
+    color: #fff;
+  }
+  .action-btn.sword {
+    background: linear-gradient(160deg, #ffb070, #c44820);
+    color: #fff;
+  }
+  .action-btn .cooldown-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55); pointer-events: none;
+    transition: height 0.05s linear;
+  }
+  .action-btn .label {
+    position: absolute; bottom: 6px; left: 0; right: 0;
+    text-align: center; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.1em; color: rgba(255,255,255,0.95);
+  }
+
   /* ---------- Rank widget ---------- */
   .rank-card {
     display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -317,8 +385,16 @@
   <div class="btn-row">
     <button class="btn" data-action="mode-ai">VS AI</button>
     <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
+    <button class="btn secondary" data-action="open-skins">SKINS</button>
   </div>
   <button class="btn ghost" data-action="back-boot">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="skins">
+  <h2 class="subtitle">CHOOSE YOUR SKIN</h2>
+  <p class="lead">Equipped skin shows in every match. Climb tiers to unlock more.</p>
+  <div class="skin-grid" id="skinGrid"></div>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
 
 <div class="screen hidden" data-screen="settings">
@@ -367,6 +443,19 @@
   </div>
 </div>
 
+<div class="action-btns hidden" id="actionBtns">
+  <button class="action-btn shield" id="shieldBtn" data-action="action-shield">
+    🛡️
+    <div class="cooldown-fill" id="shieldCdFill"></div>
+    <div class="label">SHIELD</div>
+  </button>
+  <button class="action-btn sword" id="swordBtn" data-action="action-sword">
+    ⚔️
+    <div class="cooldown-fill" id="swordCdFill"></div>
+    <div class="label">SWORD</div>
+  </button>
+</div>
+
 <div class="tutorial-banner hidden" id="tutorialBanner">
   <div class="step-label" id="tutStepLabel">STEP 1 OF 4</div>
   <div class="step-text" id="tutStepText">Welcome to PARRY!</div>
@@ -396,6 +485,10 @@
 
   var SHIELD_RAISE_MS = 220;
   var RECOIL_MS = 220;
+  // New control model: player chooses when to attack and when to shield
+  var SHIELD_UP_MS = 500;       // how long shield stays up after press
+  var SHIELD_COOLDOWN_MS = 250; // cooldown after shield drops before next raise
+  var ATTACK_COOLDOWN_MS = 600; // cooldown after attack recovery before next attack
 
   var LOBBY_ID = 'parry-of-ages-lobby-2026-v2';
   var MATCHMAKING_TIMEOUT_MS = 14000;
@@ -449,6 +542,72 @@
 
   function divisionRoman(n) { return ['', 'I', 'II', 'III', 'IV'][n] || String(n); }
 
+  // ---------- Skins ----------
+  // unlockTier: index into RANK_TIERS (0=Bronze always, 6=Apex). Skins unlock when player reaches that tier.
+  var SKINS = [
+    {
+      id: 'knight', name: 'KNIGHT', unlockTier: 0,
+      baseColor: '#4dd6ff', darkColor: '#2a8fbf',
+      trim: '#1a3f55', capeColor: '#1a4f6d', capeColorDark: '#0c2a3c',
+      helmetColor: '#7d8590', helmetRim: '#3a3f48',
+      plumeStyle: 'feather', plumeColor: '#4dd6ff',
+      swordBlade: '#f0f5fa', swordGuard: '#cca860', swordGrip: '#3a2a18', swordPommel: '#b89640',
+      shieldFace: '#5a3820', shieldRim: '#cca860', shieldBoss: '#cca860', shieldEmblem: 'cross'
+    },
+    {
+      id: 'reaver', name: 'CRIMSON REAVER', unlockTier: 0,
+      baseColor: '#a82424', darkColor: '#6a0e0e',
+      trim: '#3a0606', capeColor: '#5a0a14', capeColorDark: '#2a0508',
+      helmetColor: '#3a2828', helmetRim: '#1a0a08',
+      plumeStyle: 'horns', plumeColor: '#1a0e08',
+      swordBlade: '#e6a8a8', swordGuard: '#3a0a0a', swordGrip: '#1a0606', swordPommel: '#6a1010',
+      shieldFace: '#3a0a0a', shieldRim: '#883030', shieldBoss: '#cc4040', shieldEmblem: 'fang'
+    },
+    {
+      id: 'warden', name: 'FOREST WARDEN', unlockTier: 1,
+      baseColor: '#3da870', darkColor: '#206a44',
+      trim: '#163d28', capeColor: '#1a4d2c', capeColorDark: '#0c2a18',
+      helmetColor: '#4a4030', helmetRim: '#2a1f10',
+      plumeStyle: 'antlers', plumeColor: '#a8804a',
+      swordBlade: '#d8d4a0', swordGuard: '#6a4818', swordGrip: '#2a1a08', swordPommel: '#a8804a',
+      shieldFace: '#3a2818', shieldRim: '#6a4828', shieldBoss: '#a8804a', shieldEmblem: 'leaf'
+    },
+    {
+      id: 'goldlord', name: 'GOLDLORD', unlockTier: 2,
+      baseColor: '#f0d480', darkColor: '#bf9430',
+      trim: '#5a4818', capeColor: '#bf8a20', capeColorDark: '#6a4818',
+      helmetColor: '#cca860', helmetRim: '#5a4520',
+      plumeStyle: 'crown', plumeColor: '#fff8c8',
+      swordBlade: '#fff8c8', swordGuard: '#fff088', swordGrip: '#5a4818', swordPommel: '#fff088',
+      shieldFace: '#5a4818', shieldRim: '#fff088', shieldBoss: '#fff8c8', shieldEmblem: 'sun'
+    },
+    {
+      id: 'shadow', name: 'SHADOWBLADE', unlockTier: 4,
+      baseColor: '#7a5aa8', darkColor: '#3a1f5a',
+      trim: '#1a0a2a', capeColor: '#2a0f4a', capeColorDark: '#0a0518',
+      helmetColor: '#2a2030', helmetRim: '#0a0510',
+      plumeStyle: 'cowl', plumeColor: '#3a1f5a',
+      swordBlade: '#a888d8', swordGuard: '#3a1f5a', swordGrip: '#0a0510', swordPommel: '#5a3a8a',
+      shieldFace: '#1a0a2a', shieldRim: '#5a3a8a', shieldBoss: '#a888d8', shieldEmblem: 'eye'
+    }
+  ];
+
+  function getSkin(id) {
+    for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
+    return SKINS[0];
+  }
+  function isSkinUnlocked(skin) {
+    var rank = computeRank(profile.rp);
+    return rank.tierIndex >= skin.unlockTier;
+  }
+  function enemySkin() {
+    // Random skin for AI; actual opponent skin for online
+    if (gameMode === 'online' && net.opponentSkin) return getSkin(net.opponentSkin);
+    if (gameMode === 'tutorial') return getSkin('reaver');
+    var pool = [SKINS[1], SKINS[0], SKINS[2]]; // bias toward Reaver as the rival
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
   // ---------- Persistence ----------
   var SAVE_KEY = 'parry-of-ages-save-v1';
   var profile = loadProfile();
@@ -468,6 +627,7 @@
           tutorialDone: !!p.tutorialDone,
           username: (p.username && String(p.username).slice(0, 14)) || makeDefaultUsername(),
           soundOn: p.soundOn !== false,
+          skin: p.skin || 'knight',
           stats: {
             matches: (p.stats && p.stats.matches) || 0,
             wins: (p.stats && p.stats.wins) || 0,
@@ -482,7 +642,7 @@
     } catch (e) {}
     return {
       rp: 0, tutorialDone: false,
-      username: makeDefaultUsername(), soundOn: true,
+      username: makeDefaultUsername(), soundOn: true, skin: 'knight',
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
     };
   }
@@ -660,9 +820,14 @@
       shieldRaiseAt: 0,
       recoilT: 0,
       recoilAt: 0,
-      // AI fields
-      aiWillParryThis: false,
-      aiParryAt: 0,
+      // AI fields (on the attacker; the AI defender uses these to decide if to shield)
+      aiWillShieldThis: false,
+      aiShieldAt: 0,
+      aiHasPlanned: false,
+      // New control state
+      attackCooldownUntil: 0,
+      shieldUpUntil: 0,
+      shieldCooldownUntil: 0,
       // Stats
       parryCount: 0,
       superCount: 0,
@@ -718,9 +883,9 @@
     });
     c.on('error', function () {});
     net.connected = true;
-    // Send greeting with username
+    // Send greeting with username + skin
     setTimeout(function () {
-      netSend({ type: 'hello', name: profile.username });
+      netSend({ type: 'hello', name: profile.username, skin: profile.skin });
     }, 50);
   }
 
@@ -840,7 +1005,11 @@
     // hello is allowed any time
     if (msg.type === 'hello') {
       net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
-      if (enemy) enemy.username = net.opponentName;
+      net.opponentSkin = msg.skin || 'knight';
+      if (enemy) {
+        enemy.username = net.opponentName;
+        enemy.skin = getSkin(net.opponentSkin);
+      }
       return;
     }
     if (gameState !== STATE_PLAYING) return;
@@ -874,7 +1043,16 @@
         break;
       case 'hello':
         net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
-        if (enemy) enemy.username = net.opponentName;
+        net.opponentSkin = msg.skin || 'knight';
+        if (enemy) {
+          enemy.username = net.opponentName;
+          enemy.skin = getSkin(net.opponentSkin);
+        }
+        break;
+      case 'shield_up':
+        if (enemy && enemy.shieldCooldownUntil <= now) {
+          raiseShield(enemy, now);
+        }
         break;
     }
   }
@@ -884,17 +1062,10 @@
     f.phase = 'windup';
     f.phaseStart = now;
     f.strikeResolved = false;
-    if (gameMode === 'ai' && f.side === 'player') {
-      var willParry = Math.random() < aiParryChance(now);
-      f.aiWillParryThis = willParry;
-      var strikeAt = now + WINDUP_MS;
-      var range = PARRY_WINDOW_BEFORE_STRIKE_MS + PARRY_WINDOW_AFTER_STRIKE_MS;
-      var offset = -PARRY_WINDOW_BEFORE_STRIKE_MS + Math.random() * range;
-      f.aiParryAt = strikeAt + offset;
-    } else {
-      f.aiWillParryThis = false;
-      f.aiParryAt = 0;
-    }
+    // Reset AI shield planning whenever an attack starts
+    f.aiWillShieldThis = false;
+    f.aiShieldAt = 0;
+    f.aiHasPlanned = false;
     if (gameMode === 'online' && f.side === 'player') {
       netSend({ type: 'attack_start' });
     }
@@ -917,26 +1088,32 @@
     } else if (f.phase === 'strike' && elapsed >= STRIKE_MS) {
       if (!f.strikeResolved) {
         if (gameMode === 'tutorial') {
-          // Tutorial: no damage to player, just visual miss
+          // Tutorial: no damage to player, but honor shield blocks for the streak lesson
           if (f.side === 'enemy') {
-            player.parryStreak = 0;
-            player.hurtFlash = 0.5;
-            addPopup(player, 'MISS', '#888');
-            shake = Math.max(shake, 6);
+            if (player.shieldUpUntil > now) {
+              player.parryStreak += 1;
+              var ts = false;
+              if (player.parryStreak >= PARRY_FOR_SUPER) { ts = true; player.parryStreak = 0; }
+              player.parryCount++;
+              if (ts) player.superCount++;
+              applyParryAgainst(f, player, now, ts);
+            } else {
+              player.parryStreak = 0;
+              player.hurtFlash = 0.5;
+              addPopup(player, 'MISS', '#888');
+              shake = Math.max(shake, 6);
+            }
           }
           f.strikeResolved = true;
         } else if (gameMode === 'ai') {
           resolveStrike(f, now);
         } else {
-          // online: if this fighter is the local player and it wasn't parried, opponent will tell us via net.
-          // if this fighter is the enemy and the local player didn't parry it, the local player takes the hit and tells the opponent.
+          // online
           if (f.side === 'enemy') {
-            // Enemy's strike landed on us locally — apply damage, notify opponent
-            playerTakesHit(now);
-            f.strikeResolved = true;
+            // Local player defends; shield check inside, also notifies opponent
+            resolveStrikeOnline(f, now);
           } else {
-            // Player's strike — wait for opponent's verdict (parry/hit message)
-            // Do NOT set strikeResolved; the opponent's reply or fallback will set it
+            // Local player attacks — wait for opponent's verdict
             scheduleAttackerFallback(f, now);
           }
         }
@@ -946,12 +1123,16 @@
     } else if (f.phase === 'recovery' && elapsed >= RECOVERY_MS) {
       f.phase = 'idle';
       f.phaseStart = now;
-      if (gameMode === 'tutorial') {
-        if (f.side === 'enemy') f.nextAttackAt = now + 2200;
-        else f.nextAttackAt = Infinity; // player never auto-attacks in tutorial
-      } else if (gameMode === 'ai' || (gameMode === 'online' && f.side === 'player')) {
+      if (f.side === 'player') {
+        // Player chooses when to attack — no auto-schedule, just set cooldown
+        f.attackCooldownUntil = now + ATTACK_COOLDOWN_MS;
+        f.nextAttackAt = Infinity;
+      } else if (gameMode === 'ai') {
         f.nextAttackAt = now + ATTACK_INTERVAL_MS + (Math.random() - 0.5) * ATTACK_INTERVAL_JITTER_MS;
+      } else if (gameMode === 'tutorial') {
+        f.nextAttackAt = now + 2200;
       } else {
+        // online enemy: net-driven
         f.nextAttackAt = Infinity;
       }
     }
@@ -993,7 +1174,20 @@
 
   // ---------- AI mode resolution ----------
   function resolveStrike(attacker, now) {
+    // Check if defender has shield up — if so, treat as parry/block
     var defender = attacker.side === 'player' ? enemy : player;
+    if (defender.shieldUpUntil > now) {
+      defender.parryStreak += 1;
+      var isSuper = false;
+      if (defender.parryStreak >= PARRY_FOR_SUPER) {
+        isSuper = true;
+        defender.parryStreak = 0;
+      }
+      defender.parryCount++;
+      if (isSuper) defender.superCount++;
+      applyParryAgainst(attacker, defender, now, isSuper);
+      return;
+    }
     defender.hp = Math.max(0, defender.hp - HIT_DAMAGE);
     defender.hurtFlash = 1;
     defender.parryStreak = 0;
@@ -1008,10 +1202,41 @@
     checkEnd();
   }
 
-  function aiParryChance(now) {
+  function aiShieldChance(now) {
     var t = (now - matchStartTime) / MATCH_TIME_MS;
     if (t < 0) t = 0; if (t > 1) t = 1;
-    return 0.30 + 0.45 * t;
+    return 0.35 + 0.40 * t;
+  }
+  function aiAttackInterval() {
+    return 1500 + Math.random() * 1500; // 1.5–3.0 sec between attacks
+  }
+
+  // ---------- Player-controlled actions ----------
+  function tryPlayerAttack() {
+    if (!player) return;
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (player.phase !== 'idle') return;
+    if (now < player.attackCooldownUntil) return;
+    if (player.hp <= 0) return;
+    startAttack(player, now);
+  }
+
+  function tryPlayerShield() {
+    if (!player) return;
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (now < player.shieldCooldownUntil) return;
+    if (player.shieldUpUntil > now) return; // already up
+    raiseShield(player, now);
+    if (gameMode === 'online') netSend({ type: 'shield_up' });
+  }
+
+  function raiseShield(f, now) {
+    f.shieldUpUntil = now + SHIELD_UP_MS;
+    f.shieldCooldownUntil = f.shieldUpUntil + SHIELD_COOLDOWN_MS;
+    f.shieldRaiseAt = now;
+    f.shieldRaiseT = 1;
   }
 
   // ---------- Parry resolution ----------
@@ -1053,20 +1278,32 @@
     checkEnd();
   }
 
-  function playerTakesHit(now) {
-    // Online: enemy's strike phase ended without being parried by player
-    player.hp = Math.max(0, player.hp - HIT_DAMAGE);
-    player.hurtFlash = 1;
-    player.parryStreak = 0;
-    player.hitsTaken++;
-    if (enemy) enemy.hitsDealt++;
-    addFlash(player, '#ff5555', 80);
-    addPopup(player, 'HIT', '#ff7070');
-    shake = Math.max(shake, 12);
-    bgFlash = Math.max(bgFlash, 0.35);
-    playHit();
-    netSend({ type: 'hit' });
-    checkEnd();
+  function resolveStrikeOnline(attacker, now) {
+    // Online defender (the local player) decides outcome based on own shield state, notifies attacker
+    if (player.shieldUpUntil > now) {
+      player.parryStreak += 1;
+      var isSuper = false;
+      if (player.parryStreak >= PARRY_FOR_SUPER) { isSuper = true; player.parryStreak = 0; }
+      player.parryCount++;
+      if (isSuper) player.superCount++;
+      applyParryAgainst(attacker, player, now, isSuper);
+      attacker.strikeResolved = true;
+      netSend({ type: 'parry', isSuper: isSuper });
+    } else {
+      player.hp = Math.max(0, player.hp - HIT_DAMAGE);
+      player.hurtFlash = 1;
+      player.parryStreak = 0;
+      player.hitsTaken++;
+      if (enemy) enemy.hitsDealt++;
+      addFlash(player, '#ff5555', 80);
+      addPopup(player, 'HIT', '#ff7070');
+      shake = Math.max(shake, 12);
+      bgFlash = Math.max(bgFlash, 0.35);
+      playHit();
+      attacker.strikeResolved = true;
+      netSend({ type: 'hit' });
+      checkEnd();
+    }
   }
 
   function attemptParry(defender, attacker, now) {
@@ -1166,28 +1403,47 @@
   }
 
   // ---------- Input ----------
-  function handleTap() {
-    ensureAudio();
-    if (gameState !== STATE_PLAYING) return;
-    var now = performance.now();
-    attemptParry(player, enemy, now);
-  }
-
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
-    handleTap();
+    ensureAudio();
+    if (gameState !== STATE_PLAYING) return;
+    // Mouse: button 0 = left = sword; button 2 = right = shield
+    // Touch/pen: pointerType == 'touch' has no button — treat by screen-half
+    if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+      if (e.button === 2) tryPlayerShield();
+      else tryPlayerAttack();
+    } else {
+      // Touch: split screen — left half = shield, right half = sword
+      if (e.clientX < cssW / 2) tryPlayerShield();
+      else tryPlayerAttack();
+    }
   }, { passive: false });
 
   canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   window.addEventListener('keydown', function (e) {
-    if (e.code === 'Space' || e.code === 'Enter') {
-      if (gameState === STATE_PLAYING) {
-        e.preventDefault();
-        handleTap();
-      }
+    if (gameState !== STATE_PLAYING) return;
+    if (e.code === 'KeyZ' || e.code === 'Space') {
+      e.preventDefault();
+      tryPlayerAttack();
+    } else if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      e.preventDefault();
+      tryPlayerShield();
     }
   });
+
+  // On-screen action buttons (work on all platforms)
+  function bindActionBtn(id, fn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      ensureAudio();
+      fn();
+    }, { passive: false });
+  }
+  bindActionBtn('shieldBtn', tryPlayerShield);
+  bindActionBtn('swordBtn', tryPlayerAttack);
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
@@ -1200,9 +1456,12 @@
         f.nextAttackAt += delta;
         f.phaseStart += delta;
         f.inputLockUntil += delta;
-        f.aiParryAt += delta;
+        f.aiShieldAt += delta;
         f.shieldRaiseAt += delta;
         f.recoilAt += delta;
+        f.attackCooldownUntil += delta;
+        f.shieldUpUntil += delta;
+        f.shieldCooldownUntil += delta;
       });
       pendingAttackerFallbacks.forEach(function (p) { p.deadline += delta; });
       pausedAt = 0;
@@ -1229,13 +1488,25 @@
       }
     });
 
-    // AI parry against player attack (AI mode only)
-    if (gameMode === 'ai' && player && enemy && enemy.hp > 0 &&
-        (player.phase === 'windup' || player.phase === 'strike') &&
-        !player.strikeResolved && player.aiWillParryThis &&
-        now >= player.aiParryAt) {
-      attemptParry(enemy, player, now);
-      player.aiWillParryThis = false;
+    // AI defensive shielding (AI mode only) — reactive to player attacks
+    if (gameMode === 'ai' && player && enemy && enemy.hp > 0) {
+      if (player.phase === 'windup' || player.phase === 'strike') {
+        if (!player.aiHasPlanned) {
+          player.aiHasPlanned = true;
+          player.aiWillShieldThis = Math.random() < aiShieldChance(now);
+          if (player.aiWillShieldThis) {
+            var strikeAt = (player.phase === 'windup' ? player.phaseStart + WINDUP_MS : player.phaseStart);
+            var leadTime = 80 + Math.random() * 280; // raise 80-360ms before strike
+            player.aiShieldAt = strikeAt - leadTime;
+          }
+        }
+        if (player.aiWillShieldThis && now >= player.aiShieldAt && now < enemy.shieldCooldownUntil + 1) {
+          if (now >= enemy.shieldCooldownUntil) raiseShield(enemy, now);
+          player.aiWillShieldThis = false;
+        }
+      } else {
+        player.aiHasPlanned = false;
+      }
     }
 
     // Online attacker fallbacks
@@ -1272,7 +1543,7 @@
       if (f.hurtFlash > 0) f.hurtFlash = Math.max(0, f.hurtFlash - dt * 0.005);
       if (f.shieldRaiseT > 0) {
         var srE = now - f.shieldRaiseAt;
-        f.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_RAISE_MS);
+        f.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_UP_MS);
       }
       if (f.recoilT > 0) {
         var rcE = now - f.recoilAt;
@@ -1322,28 +1593,95 @@
     ctx.fillRect(-50, groundY, cssW + 100, cssH - groundY + 100);
   }
 
-  function drawSword(c) {
+  function drawPlume(c, s, now) {
+    var sway = Math.sin(now * 0.005) * 0.15;
+    c.save();
+    c.translate(0, -112);
+    c.rotate(sway);
+    if (s.plumeStyle === 'feather') {
+      c.fillStyle = s.plumeColor;
+      c.beginPath();
+      c.moveTo(-4, 0);
+      c.bezierCurveTo(-10, -8, -6, -22, 0, -28);
+      c.bezierCurveTo(6, -22, 10, -8, 4, 0);
+      c.closePath(); c.fill();
+      c.fillStyle = s.helmetRim;
+      c.beginPath();
+      c.moveTo(0, -2); c.lineTo(0, -26); c.lineTo(2, -22); c.lineTo(2, -2);
+      c.closePath(); c.fill();
+    } else if (s.plumeStyle === 'horns') {
+      c.fillStyle = s.plumeColor;
+      // left horn
+      c.beginPath();
+      c.moveTo(-6, 0);
+      c.bezierCurveTo(-16, -6, -22, -14, -16, -22);
+      c.bezierCurveTo(-12, -14, -8, -8, -2, 0);
+      c.closePath(); c.fill();
+      // right horn
+      c.beginPath();
+      c.moveTo(6, 0);
+      c.bezierCurveTo(16, -6, 22, -14, 16, -22);
+      c.bezierCurveTo(12, -14, 8, -8, 2, 0);
+      c.closePath(); c.fill();
+    } else if (s.plumeStyle === 'antlers') {
+      c.strokeStyle = s.plumeColor; c.lineWidth = 3; c.lineCap = 'round';
+      // left antler
+      c.beginPath(); c.moveTo(-3, 0); c.lineTo(-12, -16); c.stroke();
+      c.beginPath(); c.moveTo(-8, -10); c.lineTo(-2, -18); c.stroke();
+      c.beginPath(); c.moveTo(-12, -16); c.lineTo(-18, -22); c.stroke();
+      // right antler
+      c.beginPath(); c.moveTo(3, 0); c.lineTo(12, -16); c.stroke();
+      c.beginPath(); c.moveTo(8, -10); c.lineTo(2, -18); c.stroke();
+      c.beginPath(); c.moveTo(12, -16); c.lineTo(18, -22); c.stroke();
+    } else if (s.plumeStyle === 'crown') {
+      c.fillStyle = s.plumeColor;
+      // 5 spikes forming a crown
+      var spikes = [-12, -6, 0, 6, 12];
+      for (var i = 0; i < spikes.length; i++) {
+        var x = spikes[i];
+        var h = (i === 2 ? 18 : (Math.abs(i - 2) === 1 ? 14 : 10));
+        c.beginPath();
+        c.moveTo(x - 3, 0); c.lineTo(x, -h); c.lineTo(x + 3, 0);
+        c.closePath(); c.fill();
+      }
+      // gem
+      c.fillStyle = s.helmetRim;
+      c.beginPath(); c.arc(0, -8, 2.5, 0, Math.PI * 2); c.fill();
+    } else if (s.plumeStyle === 'cowl') {
+      c.fillStyle = s.plumeColor;
+      // small fin/cowl
+      c.beginPath();
+      c.moveTo(-8, 0);
+      c.bezierCurveTo(-14, -6, -2, -16, 0, -16);
+      c.bezierCurveTo(2, -16, 14, -6, 8, 0);
+      c.closePath(); c.fill();
+    }
+    c.restore();
+  }
+
+  function drawSword(c, s) {
+    s = s || SKINS[0];
     // Anchored at hand (0,0); blade extends along +x
     // Pommel
-    c.fillStyle = '#b89640';
+    c.fillStyle = s.swordPommel;
     c.beginPath();
     c.arc(0, 0, 5, 0, Math.PI * 2);
     c.fill();
     c.strokeStyle = '#5a4520'; c.lineWidth = 1; c.stroke();
     // Grip (wrapped leather)
-    c.fillStyle = '#3a2a18';
+    c.fillStyle = s.swordGrip;
     c.fillRect(0, -3.5, 14, 7);
     c.fillStyle = '#1a0e08';
     for (var i = 0; i < 4; i++) c.fillRect(2 + i * 3, -3.5, 1, 7);
     // Cross-guard
-    c.fillStyle = '#cca860';
+    c.fillStyle = s.swordGuard;
     c.fillRect(14, -11, 5, 22);
     c.fillStyle = '#7a5e28';
     c.fillRect(14, 9, 5, 2);
     // Blade — tapered, gradient
     var grad = c.createLinearGradient(0, -4, 0, 4);
     grad.addColorStop(0, '#8a96a0');
-    grad.addColorStop(0.5, '#f0f5fa');
+    grad.addColorStop(0.5, s.swordBlade);
     grad.addColorStop(1, '#7a8690');
     c.fillStyle = grad;
     c.beginPath();
@@ -1370,54 +1708,103 @@
     c.stroke();
   }
 
-  function drawShield(c, glow) {
+  function drawShield(c, glow, s) {
+    s = s || SKINS[0];
     // Round buckler centered at (0,0)
     if (glow > 0) {
       var gg = c.createRadialGradient(0, 0, 6, 0, 0, 40);
-      gg.addColorStop(0, 'rgba(255,240,160,' + (0.7 * glow) + ')');
+      gg.addColorStop(0, 'rgba(255,240,160,' + (0.85 * glow) + ')');
       gg.addColorStop(1, 'rgba(255,240,160,0)');
       c.fillStyle = gg;
       c.beginPath();
       c.arc(0, 0, 40, 0, Math.PI * 2);
       c.fill();
     }
-    // wood face
+    // face
     var grd = c.createRadialGradient(-4, -4, 2, 0, 0, 18);
-    grd.addColorStop(0, '#8a4d28');
-    grd.addColorStop(1, '#4a2810');
+    grd.addColorStop(0, lighten(s.shieldFace, 0.4));
+    grd.addColorStop(1, s.shieldFace);
     c.fillStyle = grd;
     c.beginPath();
     c.arc(0, 0, 18, 0, Math.PI * 2);
     c.fill();
     // metal rim
-    c.strokeStyle = '#b89640';
+    c.strokeStyle = s.shieldRim;
     c.lineWidth = 3;
     c.stroke();
-    c.strokeStyle = '#5a4520';
+    c.strokeStyle = '#1a0a08';
     c.lineWidth = 1;
     c.stroke();
-    // boss
-    c.fillStyle = '#cca860';
+    // emblem (varies by skin)
+    drawShieldEmblem(c, s);
+    // boss (center)
+    c.fillStyle = s.shieldBoss;
     c.beginPath();
     c.arc(0, 0, 5.5, 0, Math.PI * 2);
     c.fill();
-    c.strokeStyle = '#5a4520'; c.lineWidth = 1; c.stroke();
-    // Cross of rivets
-    c.fillStyle = '#8a7030';
-    [-12, 12].forEach(function (d) {
-      c.beginPath(); c.arc(d, 0, 1.6, 0, Math.PI * 2); c.fill();
-      c.beginPath(); c.arc(0, d, 1.6, 0, Math.PI * 2); c.fill();
-    });
+    c.strokeStyle = '#1a0a08'; c.lineWidth = 1; c.stroke();
+  }
+
+  function drawShieldEmblem(c, s) {
+    c.save();
+    c.fillStyle = s.shieldRim;
+    c.strokeStyle = s.shieldRim;
+    c.lineWidth = 1.5;
+    if (s.shieldEmblem === 'cross') {
+      c.fillRect(-1.5, -14, 3, 28);
+      c.fillRect(-10, -1.5, 20, 3);
+    } else if (s.shieldEmblem === 'fang') {
+      c.beginPath();
+      c.moveTo(0, -14); c.lineTo(5, 8); c.lineTo(0, 4); c.lineTo(-5, 8);
+      c.closePath(); c.fill();
+    } else if (s.shieldEmblem === 'leaf') {
+      c.beginPath();
+      c.moveTo(0, -13);
+      c.bezierCurveTo(8, -8, 8, 8, 0, 13);
+      c.bezierCurveTo(-8, 8, -8, -8, 0, -13);
+      c.closePath(); c.fill();
+      c.strokeStyle = '#0c1a0c';
+      c.beginPath(); c.moveTo(0, -13); c.lineTo(0, 13); c.stroke();
+    } else if (s.shieldEmblem === 'sun') {
+      // sun rays
+      for (var i = 0; i < 8; i++) {
+        var a = (i / 8) * Math.PI * 2;
+        c.beginPath();
+        c.moveTo(Math.cos(a) * 7, Math.sin(a) * 7);
+        c.lineTo(Math.cos(a) * 14, Math.sin(a) * 14);
+        c.lineWidth = 2;
+        c.stroke();
+      }
+    } else if (s.shieldEmblem === 'eye') {
+      c.beginPath();
+      c.ellipse(0, 0, 12, 5, 0, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#0a0a14';
+      c.beginPath();
+      c.arc(0, 0, 3, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.restore();
+  }
+
+  function lighten(hex, amt) {
+    var h = hex.replace('#', '');
+    if (h.length === 3) h = h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+    var r = Math.min(255, Math.round(parseInt(h.substring(0,2),16) + (255 - parseInt(h.substring(0,2),16)) * amt));
+    var g = Math.min(255, Math.round(parseInt(h.substring(2,4),16) + (255 - parseInt(h.substring(2,4),16)) * amt));
+    var b = Math.min(255, Math.round(parseInt(h.substring(4,6),16) + (255 - parseInt(h.substring(4,6),16)) * amt));
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
   }
 
   function drawFighter(f, now) {
     var p = getFighterPos(f);
     var facing = f.side === 'player' ? 1 : -1;
-    var baseColor = f.side === 'player' ? '#4dd6ff' : '#ff5d7e';
-    var darkColor = f.side === 'player' ? '#2a8fbf' : '#c4364f';
-    var trim = f.side === 'player' ? '#1a3f55' : '#5a1f30';
-    var capeColor = f.side === 'player' ? '#1a4f6d' : '#6b1a30';
-    var capeColorDark = f.side === 'player' ? '#0c2a3c' : '#3c0f1c';
+    var s = f.skin || (f.side === 'player' ? getSkin(profile.skin) : SKINS[1]);
+    var baseColor = s.baseColor;
+    var darkColor = s.darkColor;
+    var trim = s.trim;
+    var capeColor = s.capeColor;
+    var capeColorDark = s.capeColorDark;
 
     // shadow
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -1530,23 +1917,17 @@
     ctx.beginPath(); ctx.arc(-25, -65, 8, Math.PI, 0); ctx.stroke();
     ctx.beginPath(); ctx.arc(25, -65, 8, Math.PI, 0); ctx.stroke();
 
-    // ---- Head ----
-    ctx.fillStyle = bodyFill;
+    // ---- Face (lower half — stays exposed below helmet) ----
+    var faceFill = f.hurtFlash > 0 ? bodyFill : '#d4ad88';
+    ctx.fillStyle = faceFill;
     ctx.beginPath();
-    ctx.arc(0, -90, 22, 0, Math.PI * 2);
-    ctx.fill();
-    // chin shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.beginPath();
-    ctx.arc(0, -82, 22, 0, Math.PI);
+    ctx.arc(0, -90, 22, 0, Math.PI);
     ctx.fill();
 
-    // ---- Helmet (full top + plume) ----
-    ctx.fillStyle = '#7d8590';
+    // ---- Helmet (top half cap, anticlockwise = top in canvas y-down) ----
+    ctx.fillStyle = s.helmetColor;
     ctx.beginPath();
-    ctx.arc(0, -90, 22, Math.PI, 0);
-    ctx.lineTo(20, -98);
-    ctx.lineTo(-20, -98);
+    ctx.arc(0, -90, 22, Math.PI, 0, true);
     ctx.closePath();
     ctx.fill();
     // helmet shine
@@ -1555,37 +1936,17 @@
     helmGrad.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = helmGrad;
     ctx.beginPath();
-    ctx.arc(0, -90, 22, Math.PI, 0);
+    ctx.arc(0, -90, 22, Math.PI, 0, true);
     ctx.closePath();
     ctx.fill();
     // helmet rim
-    ctx.fillStyle = '#3a3f48';
+    ctx.fillStyle = s.helmetRim;
     ctx.fillRect(-22, -90, 44, 4);
     // brow piece (T-bar)
-    ctx.fillStyle = '#3a3f48';
+    ctx.fillStyle = s.helmetRim;
     ctx.fillRect(-3, -100, 6, 14);
-    // plume (feather)
-    var plumeColor = baseColor;
-    ctx.save();
-    ctx.translate(0, -112);
-    var plumeSway = Math.sin(now * 0.005) * 0.15;
-    ctx.rotate(plumeSway);
-    ctx.fillStyle = plumeColor;
-    ctx.beginPath();
-    ctx.moveTo(-4, 0);
-    ctx.bezierCurveTo(-10, -8, -6, -22, 0, -28);
-    ctx.bezierCurveTo(6, -22, 10, -8, 4, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = darkColor;
-    ctx.beginPath();
-    ctx.moveTo(0, -2);
-    ctx.lineTo(0, -26);
-    ctx.lineTo(2, -22);
-    ctx.lineTo(2, -2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    // ---- Plume / crest (varies by skin) ----
+    drawPlume(ctx, s, now);
 
     // ---- Eyes (visor slits) ----
     ctx.fillStyle = '#0a0a14';
@@ -1612,7 +1973,7 @@
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(2, -7, 32, 3);
     ctx.translate(36, 0);
-    drawShield(ctx, shieldGlow);
+    drawShield(ctx, shieldGlow, s);
     ctx.restore();
 
     // ---- Main arm with sword ----
@@ -1666,7 +2027,7 @@
     ctx.fill();
     // sword (anchored at hand)
     ctx.translate(42, 0);
-    drawSword(ctx);
+    drawSword(ctx, s);
     ctx.restore();
 
     ctx.restore();
@@ -1798,6 +2159,32 @@
     ctx.restore();
   }
 
+  function updateActionButtonCooldowns(now) {
+    if (gameState !== STATE_PLAYING || !player) return;
+    var swordFill = document.getElementById('swordCdFill');
+    var shieldFill = document.getElementById('shieldCdFill');
+    if (swordFill) {
+      var cd = 0;
+      if (player.phase !== 'idle') {
+        // mid-attack — cover most
+        cd = 0.85;
+      } else if (player.attackCooldownUntil > now) {
+        cd = (player.attackCooldownUntil - now) / ATTACK_COOLDOWN_MS;
+      }
+      cd = Math.max(0, Math.min(1, cd));
+      swordFill.style.height = (cd * 100).toFixed(1) + '%';
+    }
+    if (shieldFill) {
+      var sd = 0;
+      if (player.shieldCooldownUntil > now) {
+        var totalCd = SHIELD_UP_MS + SHIELD_COOLDOWN_MS;
+        sd = (player.shieldCooldownUntil - now) / totalCd;
+      }
+      sd = Math.max(0, Math.min(1, sd));
+      shieldFill.style.height = (sd * 100).toFixed(1) + '%';
+    }
+  }
+
   function loop(now) {
     if (!lastTime) lastTime = now;
     var dt = now - lastTime;
@@ -1806,6 +2193,7 @@
     update(now, dt);
     ctx.clearRect(0, 0, cssW, cssH);
     render(now);
+    updateActionButtonCooldowns(now);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -1871,22 +2259,22 @@
     },
     {
       label: 'STEP 2 OF 4',
-      text: 'TAP THE INSTANT BEFORE THE STRIKE',
-      hint: 'Tap to parry one attack. Don\'t mash — wait for the perfect moment.',
+      text: 'TAP SHIELD JUST BEFORE THEY STRIKE',
+      hint: 'Press 🛡 SHIELD (left side / right-click / X). Time it for the strike.',
       requiredParries: 1,
       maxAttacks: 5
     },
     {
       label: 'STEP 3 OF 4',
-      text: 'STRING THREE PARRIES',
-      hint: 'Three in a row unleashes a SUPER for huge damage.',
+      text: 'BLOCK THREE IN A ROW',
+      hint: 'Three blocks in a row unleashes a SUPER. Stay focused.',
       requiredParries: 3,
       maxAttacks: 8
     },
     {
       label: 'STEP 4 OF 4',
-      text: 'YOU\'RE READY',
-      hint: 'Tap anywhere to finish.',
+      text: 'NOW ATTACK BACK',
+      hint: 'Press ⚔ SWORD (right side / left-click / Z) to swing at your rival.',
       requiredParries: 0,
       maxAttacks: 0,
       complete: true
@@ -1967,10 +2355,7 @@
     if (!step || step.complete) return;
     if (tutorialAttackCount >= step.maxAttacks) return;
     if (enemy.phase === 'idle' && now >= enemy.nextAttackAt) {
-      // Slowed-down attack for tutorial
-      enemy.phase = 'windup';
-      enemy.phaseStart = now;
-      enemy.strikeResolved = false;
+      startAttack(enemy, now);
       tutorialAttackCount++;
     }
   }
@@ -1983,16 +2368,17 @@
     var now = performance.now();
     matchStartTime = now;
     lastTime = now;
+    // Assign skins
+    player.skin = getSkin(profile.skin);
+    enemy.skin = enemySkin();
+    // Player never auto-attacks in any mode now (player-controlled)
+    player.nextAttackAt = Infinity;
     if (mode === 'ai') {
-      player.nextAttackAt = now + 1300;
-      enemy.nextAttackAt = now + 1000;
+      enemy.nextAttackAt = now + 1200;
     } else if (mode === 'tutorial') {
-      player.nextAttackAt = Infinity;
       enemy.nextAttackAt = now + 2000;
     } else {
-      // online: each side schedules its own attacks; opponent's are net-driven
-      player.nextAttackAt = now + 1300 + Math.random() * 400;
-      enemy.nextAttackAt = Infinity;
+      enemy.nextAttackAt = Infinity; // net-driven
     }
     flashes.length = 0; popups.length = 0; sparks.length = 0;
     pendingAttackerFallbacks.length = 0;
@@ -2003,7 +2389,10 @@
     if (mode === 'online') {
       net.onMessage = onNetMessage;
       enemy.username = net.opponentName || 'RIVAL';
+      if (net.opponentSkin) enemy.skin = getSkin(net.opponentSkin);
     }
+    // Show action buttons during play
+    document.getElementById('actionBtns').classList.remove('hidden');
   }
 
   var endReason = '';
@@ -2012,6 +2401,7 @@
     gameState = STATE_GAMEOVER;
     endReason = reason || '';
     playEnd(playerWon);
+    document.getElementById('actionBtns').classList.add('hidden');
     showGameOver(playerWon);
   }
 
@@ -2128,15 +2518,120 @@
     showScreen('gameover');
   }
 
+  function hideGameUi() {
+    document.getElementById('actionBtns').classList.add('hidden');
+  }
   function goToBoot() {
     netCleanup();
     gameState = STATE_BOOT;
+    hideGameUi();
     showScreen('boot');
   }
   function goToMode() {
     gameState = STATE_MENU_MODE;
+    hideGameUi();
     showScreen('mode');
     updateModeRankWidget();
+  }
+
+  function openSkins() {
+    var grid = document.getElementById('skinGrid');
+    grid.innerHTML = '';
+    SKINS.forEach(function (skin) {
+      var unlocked = isSkinUnlocked(skin);
+      var card = document.createElement('div');
+      card.className = 'skin-card' +
+        (unlocked ? '' : ' locked') +
+        (profile.skin === skin.id ? ' equipped' : '');
+      var unlockText = unlocked
+        ? (profile.skin === skin.id ? 'EQUIPPED' : 'TAP TO EQUIP')
+        : 'Unlock at ' + RANK_TIERS[skin.unlockTier].name;
+      card.innerHTML =
+        '<canvas width="110" height="130"></canvas>' +
+        '<div class="skin-name">' + skin.name + '</div>' +
+        '<div class="skin-unlock">' + unlockText + '</div>' +
+        (unlocked ? '' : '<div class="lock-icon">🔒</div>');
+      var cv = card.querySelector('canvas');
+      drawSkinPreview(cv, skin);
+      if (unlocked) {
+        card.addEventListener('click', function () {
+          profile.skin = skin.id;
+          saveProfile();
+          openSkins();
+        });
+      }
+      grid.appendChild(card);
+    });
+    showScreen('skins');
+  }
+
+  function drawSkinPreview(cv, skin) {
+    var c = cv.getContext('2d');
+    var w = cv.width, h = cv.height;
+    c.clearRect(0, 0, w, h);
+    // background
+    var bg = c.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#1a1230');
+    bg.addColorStop(1, '#0a0a14');
+    c.fillStyle = bg;
+    c.fillRect(0, 0, w, h);
+    // floor line
+    c.fillStyle = 'rgba(0,0,0,0.4)';
+    c.beginPath(); c.ellipse(w/2, h*0.86, 30, 5, 0, 0, Math.PI*2); c.fill();
+    // mini character centered
+    c.save();
+    c.translate(w/2, h*0.88);
+    var sc = 0.55;
+    c.scale(sc, sc);
+    // cape
+    c.fillStyle = skin.capeColor;
+    c.beginPath();
+    c.moveTo(-14, -76);
+    c.bezierCurveTo(-32, -50, -38, -10, -32, 30);
+    c.lineTo(-10, 36);
+    c.bezierCurveTo(-6, 0, -10, -36, -4, -76);
+    c.closePath(); c.fill();
+    // legs
+    c.fillStyle = skin.trim;
+    c.fillRect(-22, -8, 14, 50); c.fillRect(8, -8, 14, 50);
+    // greaves
+    c.fillStyle = '#a8b0bb';
+    roundRect(c, -22, 14, 14, 28, 3); c.fill();
+    roundRect(c, 8, 14, 14, 28, 3); c.fill();
+    // body
+    c.fillStyle = skin.baseColor;
+    roundRect(c, -32, -70, 64, 70, 12); c.fill();
+    c.fillStyle = skin.trim;
+    roundRect(c, -28, -68, 56, 8, 4); c.fill();
+    // belt
+    c.fillStyle = '#6a4818'; c.fillRect(-32, -10, 64, 6);
+    c.fillStyle = '#cca860'; c.fillRect(-4, -10, 8, 6);
+    // shoulder pads
+    c.fillStyle = '#a8b0bb';
+    roundRect(c, -34, -72, 18, 14, 5); c.fill();
+    roundRect(c, 16, -72, 18, 14, 5); c.fill();
+    // face
+    c.fillStyle = '#d4ad88';
+    c.beginPath(); c.arc(0, -90, 22, 0, Math.PI); c.fill();
+    // helmet
+    c.fillStyle = skin.helmetColor;
+    c.beginPath(); c.arc(0, -90, 22, Math.PI, 0, true); c.closePath(); c.fill();
+    c.fillStyle = skin.helmetRim;
+    c.fillRect(-22, -90, 44, 4);
+    c.fillRect(-3, -100, 6, 14);
+    // eye glow
+    c.fillStyle = 'rgba(150,210,255,0.7)';
+    c.fillRect(0, -95, 3, 3); c.fillRect(8, -95, 3, 3);
+    // plume
+    drawPlume(c, skin, performance.now());
+    c.restore();
+    // shield + sword icons in corners
+    c.save(); c.translate(20, h-22); c.scale(0.6, 0.6);
+    drawShield(c, 0, skin);
+    c.restore();
+    c.save(); c.translate(w - 36, h - 28); c.rotate(-0.4); c.scale(0.45, 0.45);
+    drawSword(c, skin);
+    c.restore();
   }
 
   function openSettings() {
@@ -2240,6 +2735,12 @@
       case 'open-settings':
       case 'edit-name':
         openSettings();
+        break;
+      case 'open-skins':
+        openSkins();
+        break;
+      case 'back-mode':
+        goToMode();
         break;
       case 'settings-back':
         saveSettingsAndBack();
