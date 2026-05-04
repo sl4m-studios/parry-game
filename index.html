@@ -351,6 +351,22 @@
     letter-spacing: 0.08em; text-transform: uppercase;
     animation: promote-glow 1.2s ease-in-out;
   }
+  .coin-delta {
+    font-size: 22px; font-weight: 900;
+    letter-spacing: 0.04em; padding: 6px 16px;
+    background: rgba(255,211,77,0.10); border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .coin-delta.hidden { display: none; }
+  .coin-delta.up { color: #ffd34d; }
+  .coin-delta.down { color: #ff7a7a; background: rgba(255,80,80,0.10); }
+  .coin-balance {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 800; font-size: 14px; color: #ffd34d;
+    padding: 6px 12px; background: rgba(255,211,77,0.12);
+    border-radius: 999px; letter-spacing: 0.04em;
+  }
+  .coin-balance::before { content: '🪙'; font-size: 14px; }
   @keyframes promote-glow {
     0%, 100% { text-shadow: 0 0 0 transparent; }
     50% { text-shadow: 0 0 20px #ffd34d, 0 0 40px #ff9c20; }
@@ -376,6 +392,7 @@
     <div class="username-row">
       <span id="modeUsername">PLAYER</span>
       <button class="mini-btn" data-action="edit-name">EDIT</button>
+      <span class="coin-balance" id="modeCoinBal">0</span>
     </div>
     <div class="rank-rp" id="modeRankRp">0 / 100 RP</div>
     <div class="rp-bar"><div class="rp-fill" id="modeRpFill" style="width:0%"></div></div>
@@ -391,8 +408,9 @@
 </div>
 
 <div class="screen hidden" data-screen="skins">
-  <h2 class="subtitle">CHOOSE YOUR SKIN</h2>
-  <p class="lead">Equipped skin shows in every match. Climb tiers to unlock more.</p>
+  <h2 class="subtitle">SKIN VAULT</h2>
+  <div id="skinCoinBal" class="coin-balance">0</div>
+  <p class="lead">Earn coins by winning matches. Climb ranks for tier skins.</p>
   <div class="skin-grid" id="skinGrid"></div>
   <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
@@ -436,6 +454,7 @@
     <div class="rp-bar-large"><div class="rp-fill-large" id="goRpFill" style="width:0%"></div></div>
     <div class="promote-flash hidden" id="goPromote">RANK UP</div>
   </div>
+  <div id="goCoinDelta" class="coin-delta hidden">+0 🪙</div>
   <div id="goStats"></div>
   <div class="btn-row">
     <button class="btn" data-action="go-rematch" id="goRematchBtn">PLAY AGAIN</button>
@@ -543,10 +562,11 @@
   function divisionRoman(n) { return ['', 'I', 'II', 'III', 'IV'][n] || String(n); }
 
   // ---------- Skins ----------
-  // unlockTier: index into RANK_TIERS (0=Bronze always, 6=Apex). Skins unlock when player reaches that tier.
+  // unlockType: 'always' | 'rank' | 'coin'
+  // unlockTier: tier index (for 'rank')   |  cost: coins (for 'coin')
   var SKINS = [
     {
-      id: 'knight', name: 'KNIGHT', unlockTier: 0,
+      id: 'knight', name: 'KNIGHT', unlockType: 'always',
       baseColor: '#4dd6ff', darkColor: '#2a8fbf',
       trim: '#1a3f55', capeColor: '#1a4f6d', capeColorDark: '#0c2a3c',
       helmetColor: '#7d8590', helmetRim: '#3a3f48',
@@ -555,7 +575,7 @@
       shieldFace: '#5a3820', shieldRim: '#cca860', shieldBoss: '#cca860', shieldEmblem: 'cross'
     },
     {
-      id: 'reaver', name: 'CRIMSON REAVER', unlockTier: 0,
+      id: 'reaver', name: 'CRIMSON REAVER', unlockType: 'rank', unlockTier: 0,
       baseColor: '#a82424', darkColor: '#6a0e0e',
       trim: '#3a0606', capeColor: '#5a0a14', capeColorDark: '#2a0508',
       helmetColor: '#3a2828', helmetRim: '#1a0a08',
@@ -564,7 +584,7 @@
       shieldFace: '#3a0a0a', shieldRim: '#883030', shieldBoss: '#cc4040', shieldEmblem: 'fang'
     },
     {
-      id: 'warden', name: 'FOREST WARDEN', unlockTier: 1,
+      id: 'warden', name: 'FOREST WARDEN', unlockType: 'rank', unlockTier: 1,
       baseColor: '#3da870', darkColor: '#206a44',
       trim: '#163d28', capeColor: '#1a4d2c', capeColorDark: '#0c2a18',
       helmetColor: '#4a4030', helmetRim: '#2a1f10',
@@ -573,7 +593,7 @@
       shieldFace: '#3a2818', shieldRim: '#6a4828', shieldBoss: '#a8804a', shieldEmblem: 'leaf'
     },
     {
-      id: 'goldlord', name: 'GOLDLORD', unlockTier: 2,
+      id: 'goldlord', name: 'GOLDLORD', unlockType: 'rank', unlockTier: 2,
       baseColor: '#f0d480', darkColor: '#bf9430',
       trim: '#5a4818', capeColor: '#bf8a20', capeColorDark: '#6a4818',
       helmetColor: '#cca860', helmetRim: '#5a4520',
@@ -582,13 +602,86 @@
       shieldFace: '#5a4818', shieldRim: '#fff088', shieldBoss: '#fff8c8', shieldEmblem: 'sun'
     },
     {
-      id: 'shadow', name: 'SHADOWBLADE', unlockTier: 4,
+      id: 'phantom', name: 'PLATINUM PHANTOM', unlockType: 'rank', unlockTier: 3,
+      baseColor: '#dceaff', darkColor: '#88a8c8',
+      trim: '#3a4858', capeColor: '#3a5878', capeColorDark: '#1a2840',
+      helmetColor: '#bcd0e8', helmetRim: '#5a6878',
+      plumeStyle: 'feather', plumeColor: '#ffffff',
+      swordBlade: '#e8f4ff', swordGuard: '#88a0b8', swordGrip: '#2a3848', swordPommel: '#bcd0e8',
+      shieldFace: '#2a4868', shieldRim: '#bcd0e8', shieldBoss: '#dceaff', shieldEmblem: 'leaf'
+    },
+    {
+      id: 'shadow', name: 'SHADOWBLADE', unlockType: 'rank', unlockTier: 4,
       baseColor: '#7a5aa8', darkColor: '#3a1f5a',
       trim: '#1a0a2a', capeColor: '#2a0f4a', capeColorDark: '#0a0518',
       helmetColor: '#2a2030', helmetRim: '#0a0510',
       plumeStyle: 'cowl', plumeColor: '#3a1f5a',
       swordBlade: '#a888d8', swordGuard: '#3a1f5a', swordGrip: '#0a0510', swordPommel: '#5a3a8a',
       shieldFace: '#1a0a2a', shieldRim: '#5a3a8a', shieldBoss: '#a888d8', shieldEmblem: 'eye'
+    },
+    {
+      id: 'champion', name: 'CHAMPION CROWN', unlockType: 'rank', unlockTier: 5,
+      baseColor: '#ff5050', darkColor: '#a02020',
+      trim: '#5a0000', capeColor: '#600010', capeColorDark: '#2a0008',
+      helmetColor: '#cca860', helmetRim: '#5a4520',
+      plumeStyle: 'crown', plumeColor: '#fff088',
+      swordBlade: '#fff088', swordGuard: '#cca860', swordGrip: '#5a0000', swordPommel: '#fff8c8',
+      shieldFace: '#5a0000', shieldRim: '#fff088', shieldBoss: '#fff8c8', shieldEmblem: 'sun'
+    },
+    {
+      id: 'apex', name: 'APEX OVERLORD', unlockType: 'rank', unlockTier: 6,
+      baseColor: '#a070ff', darkColor: '#5030a0',
+      trim: '#2a1060', capeColor: '#1a0560', capeColorDark: '#0a0220',
+      helmetColor: '#5030a0', helmetRim: '#1a0560',
+      plumeStyle: 'antlers', plumeColor: '#ff80ff',
+      swordBlade: '#e8b8ff', swordGuard: '#5030a0', swordGrip: '#1a0560', swordPommel: '#ff80ff',
+      shieldFace: '#1a0560', shieldRim: '#ff80ff', shieldBoss: '#e8b8ff', shieldEmblem: 'eye'
+    },
+    // ---------- Coin shop skins ----------
+    {
+      id: 'ember', name: 'EMBER REAVER', unlockType: 'coin', cost: 100,
+      baseColor: '#ff8030', darkColor: '#a04010',
+      trim: '#5a1a08', capeColor: '#601510', capeColorDark: '#2a0808',
+      helmetColor: '#3a1810', helmetRim: '#1a0808',
+      plumeStyle: 'horns', plumeColor: '#601000',
+      swordBlade: '#ffb070', swordGuard: '#5a1a08', swordGrip: '#1a0606', swordPommel: '#a04010',
+      shieldFace: '#3a0a05', shieldRim: '#a04010', shieldBoss: '#ff8030', shieldEmblem: 'fang'
+    },
+    {
+      id: 'void', name: 'VOID PRIEST', unlockType: 'coin', cost: 250,
+      baseColor: '#3a3060', darkColor: '#1a1530',
+      trim: '#0a0518', capeColor: '#0c0820', capeColorDark: '#02000a',
+      helmetColor: '#1a1525', helmetRim: '#000005',
+      plumeStyle: 'cowl', plumeColor: '#5040a0',
+      swordBlade: '#806ad0', swordGuard: '#1a1530', swordGrip: '#000005', swordPommel: '#5040a0',
+      shieldFace: '#0a0518', shieldRim: '#5040a0', shieldBoss: '#806ad0', shieldEmblem: 'eye'
+    },
+    {
+      id: 'storm', name: 'STORMCALLER', unlockType: 'coin', cost: 500,
+      baseColor: '#80b8ff', darkColor: '#3070c0',
+      trim: '#152a5a', capeColor: '#1a3060', capeColorDark: '#0a1830',
+      helmetColor: '#2a4870', helmetRim: '#0a1830',
+      plumeStyle: 'antlers', plumeColor: '#ffff60',
+      swordBlade: '#e0f0ff', swordGuard: '#2a4870', swordGrip: '#0a1830', swordPommel: '#ffff60',
+      shieldFace: '#152a5a', shieldRim: '#80b8ff', shieldBoss: '#ffff60', shieldEmblem: 'cross'
+    },
+    {
+      id: 'dragon', name: 'DRAGONHEART', unlockType: 'coin', cost: 1000,
+      baseColor: '#a02020', darkColor: '#500000',
+      trim: '#1a0000', capeColor: '#300000', capeColorDark: '#0a0000',
+      helmetColor: '#400a0a', helmetRim: '#1a0000',
+      plumeStyle: 'horns', plumeColor: '#1a0000',
+      swordBlade: '#ff8060', swordGuard: '#400a0a', swordGrip: '#1a0000', swordPommel: '#a02020',
+      shieldFace: '#300000', shieldRim: '#ff6020', shieldBoss: '#ffaa20', shieldEmblem: 'fang'
+    },
+    {
+      id: 'celestial', name: 'CELESTIAL', unlockType: 'coin', cost: 2500,
+      baseColor: '#fff5d0', darkColor: '#cca860',
+      trim: '#6a4818', capeColor: '#a06030', capeColorDark: '#5a3018',
+      helmetColor: '#fff088', helmetRim: '#cca860',
+      plumeStyle: 'crown', plumeColor: '#fff088',
+      swordBlade: '#fffff0', swordGuard: '#cca860', swordGrip: '#6a4818', swordPommel: '#fff088',
+      shieldFace: '#6a4818', shieldRim: '#fff088', shieldBoss: '#fffff0', shieldEmblem: 'sun'
     }
   ];
 
@@ -597,8 +690,30 @@
     return SKINS[0];
   }
   function isSkinUnlocked(skin) {
-    var rank = computeRank(profile.rp);
-    return rank.tierIndex >= skin.unlockTier;
+    if (skin.unlockType === 'always') return true;
+    if (skin.unlockType === 'rank') {
+      var rank = computeRank(profile.rp);
+      return rank.tierIndex >= skin.unlockTier;
+    }
+    if (skin.unlockType === 'coin') {
+      return (profile.purchasedSkins || []).indexOf(skin.id) !== -1;
+    }
+    return false;
+  }
+  function canAffordSkin(skin) {
+    return skin.unlockType === 'coin' && profile.coins >= skin.cost;
+  }
+  function purchaseSkin(skinId) {
+    var skin = getSkin(skinId);
+    if (!skin || skin.unlockType !== 'coin') return false;
+    if (isSkinUnlocked(skin)) return false;
+    if (profile.coins < skin.cost) return false;
+    profile.coins -= skin.cost;
+    if (!profile.purchasedSkins) profile.purchasedSkins = [];
+    profile.purchasedSkins.push(skin.id);
+    profile.skin = skin.id;
+    saveProfile();
+    return true;
   }
   function enemySkin() {
     // Random skin for AI; actual opponent skin for online
@@ -628,6 +743,8 @@
           username: (p.username && String(p.username).slice(0, 14)) || makeDefaultUsername(),
           soundOn: p.soundOn !== false,
           skin: p.skin || 'knight',
+          coins: typeof p.coins === 'number' ? p.coins : 0,
+          purchasedSkins: Array.isArray(p.purchasedSkins) ? p.purchasedSkins : [],
           stats: {
             matches: (p.stats && p.stats.matches) || 0,
             wins: (p.stats && p.stats.wins) || 0,
@@ -643,6 +760,7 @@
     return {
       rp: 0, tutorialDone: false,
       username: makeDefaultUsername(), soundOn: true, skin: 'knight',
+      coins: 0, purchasedSkins: [],
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
     };
   }
@@ -652,14 +770,24 @@
   }
 
   function awardMatchOutcome(won, mode) {
-    // Only ONLINE matches affect rank. AI and tutorial are unranked practice.
-    if (mode !== 'online') return { delta: 0, oldRp: profile.rp, newRp: profile.rp };
-    var delta = won ? 25 : -12;
+    var rpDelta = 0, coinDelta = 0;
+    if (mode === 'online') {
+      rpDelta = won ? 25 : -12;
+      coinDelta = won ? 25 : -1;
+    } else if (mode === 'ai') {
+      coinDelta = won ? 10 : -1;
+    }
     var oldRp = profile.rp;
-    var newRp = Math.max(0, oldRp + delta);
+    var newRp = Math.max(0, oldRp + rpDelta);
     profile.rp = newRp;
     if (newRp > profile.stats.highestRp) profile.stats.highestRp = newRp;
-    return { delta: newRp - oldRp, oldRp: oldRp, newRp: newRp };
+    var oldCoins = profile.coins;
+    var newCoins = Math.max(0, oldCoins + coinDelta);
+    profile.coins = newCoins;
+    return {
+      delta: newRp - oldRp, oldRp: oldRp, newRp: newRp,
+      coinDelta: newCoins - oldCoins, oldCoins: oldCoins, newCoins: newCoins
+    };
   }
 
   function commitMatchStats() {
@@ -2226,6 +2354,8 @@
     var label = rank.divisions > 1 ? rank.name + ' ' + divisionRoman(rank.division) : rank.name;
     name.textContent = label;
     usernameEl.textContent = profile.username;
+    var coinEl = document.getElementById('modeCoinBal');
+    if (coinEl) coinEl.textContent = profile.coins;
     if (rank.isMax) {
       rp.textContent = profile.rp + ' RP — MAX TIER';
       fill.style.width = '100%';
@@ -2455,11 +2585,23 @@
       });
     }
 
-    // Commit lifetime stats for any non-tutorial match
+    // Commit lifetime stats and award rank/coins for non-tutorial matches
+    var awarded = null;
+    var oldRank = computeRank(profile.rp);
     if (!isTutorial && (gameMode === 'ai' || gameMode === 'online')) {
       commitMatchStats();
       if (playerWon) profile.stats.wins += 1;
+      awarded = awardMatchOutcome(playerWon, gameMode);
       saveProfile();
+    }
+
+    // Coin delta display (for AI + online)
+    var coinEl = document.getElementById('goCoinDelta');
+    if (awarded && awarded.coinDelta !== 0) {
+      coinEl.textContent = (awarded.coinDelta > 0 ? '+' : '') + awarded.coinDelta + ' 🪙  (' + profile.coins + ' total)';
+      coinEl.className = 'coin-delta ' + (awarded.coinDelta > 0 ? 'up' : 'down');
+    } else {
+      coinEl.classList.add('hidden');
     }
 
     // Rank panel: only for online matches (ranked)
@@ -2468,9 +2610,6 @@
       rankPanel.style.display = 'none';
     } else {
       rankPanel.style.display = '';
-      var oldRank = computeRank(profile.rp);
-      var awarded = awardMatchOutcome(playerWon, gameMode);
-      saveProfile();
       var newRank = computeRank(profile.rp);
 
       var deltaEl = document.getElementById('goRpDelta');
@@ -2536,21 +2675,32 @@
 
   function openSkins() {
     var grid = document.getElementById('skinGrid');
+    var bal = document.getElementById('skinCoinBal');
+    if (bal) bal.textContent = profile.coins;
     grid.innerHTML = '';
     SKINS.forEach(function (skin) {
       var unlocked = isSkinUnlocked(skin);
+      var equipped = profile.skin === skin.id;
       var card = document.createElement('div');
       card.className = 'skin-card' +
         (unlocked ? '' : ' locked') +
-        (profile.skin === skin.id ? ' equipped' : '');
-      var unlockText = unlocked
-        ? (profile.skin === skin.id ? 'EQUIPPED' : 'TAP TO EQUIP')
-        : 'Unlock at ' + RANK_TIERS[skin.unlockTier].name;
+        (equipped ? ' equipped' : '');
+      var unlockText;
+      if (unlocked) {
+        unlockText = equipped ? 'EQUIPPED' : 'TAP TO EQUIP';
+      } else if (skin.unlockType === 'rank') {
+        unlockText = 'Reach ' + RANK_TIERS[skin.unlockTier].name;
+      } else if (skin.unlockType === 'coin') {
+        var afford = canAffordSkin(skin);
+        unlockText = '🪙 ' + skin.cost + (afford ? ' — TAP TO BUY' : ' (need more coins)');
+      }
+      var lockIcon = unlocked ? '' :
+        (skin.unlockType === 'coin' && canAffordSkin(skin) ? '' : '<div class="lock-icon">🔒</div>');
       card.innerHTML =
         '<canvas width="110" height="130"></canvas>' +
         '<div class="skin-name">' + skin.name + '</div>' +
         '<div class="skin-unlock">' + unlockText + '</div>' +
-        (unlocked ? '' : '<div class="lock-icon">🔒</div>');
+        lockIcon;
       var cv = card.querySelector('canvas');
       drawSkinPreview(cv, skin);
       if (unlocked) {
@@ -2558,6 +2708,14 @@
           profile.skin = skin.id;
           saveProfile();
           openSkins();
+        });
+      } else if (skin.unlockType === 'coin' && canAffordSkin(skin)) {
+        // Override locked styling — make affordable
+        card.classList.remove('locked');
+        card.addEventListener('click', function () {
+          if (confirm('Buy ' + skin.name + ' for ' + skin.cost + ' coins?')) {
+            if (purchaseSkin(skin.id)) openSkins();
+          }
         });
       }
       grid.appendChild(card);
