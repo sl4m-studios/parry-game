@@ -1749,7 +1749,7 @@
             }
           }
           f.strikeResolved = true;
-        } else if (gameMode === 'ai') {
+        } else if (gameMode === 'ai' || gameMode === 'campaign') {
           resolveStrike(f, now);
         } else {
           // online
