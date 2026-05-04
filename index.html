@@ -946,32 +946,37 @@
   // ---------- Boss Campaign ----------
   var BOSSES = [
     {
-      id: 'berserker', name: 'THE BERSERKER', skinId: 'reaver', hp: 130,
-      blurb: 'Charges nothing but heavy blows. Cannot block. Punish his openings.',
+      id: 'berserker', name: 'THE BERSERKER', skinId: 'reaver', hp: 90,
+      blurb: 'All heavy charges. No defense.',
+      tip: 'DODGE his heavies (HOLD shield). Shielding gets BROKEN.',
       reward: 50,
       brain: 'berserker'
     },
     {
-      id: 'ninja', name: 'THE NINJA', skinId: 'shadow', hp: 80,
-      blurb: 'Quick jabs, dodges constantly. Glass cannon — corner him fast.',
+      id: 'ninja', name: 'THE NINJA', skinId: 'shadow', hp: 65,
+      blurb: 'Quick jabs, dodges often. Glass cannon.',
+      tip: 'Spam light taps to land hits — he dodges 50% but you only need a few.',
       reward: 75,
       brain: 'ninja'
     },
     {
-      id: 'turtle', name: 'THE TURTLE', skinId: 'phantom', hp: 110,
-      blurb: 'Shields almost every attack. Charge a heavy to break through.',
+      id: 'turtle', name: 'THE TURTLE', skinId: 'phantom', hp: 90,
+      blurb: 'Shields almost every attack.',
+      tip: 'CHARGE heavy attacks (hold sword) to BREAK his shield.',
       reward: 100,
       brain: 'turtle'
     },
     {
-      id: 'echo', name: 'THE ECHO', skinId: 'apex', hp: 100,
-      blurb: 'Mirrors your last move back at you. Mix up your patterns.',
+      id: 'echo', name: 'THE ECHO', skinId: 'apex', hp: 90,
+      blurb: 'Mirrors your last move at you.',
+      tip: 'Vary your pattern — feint a charge, then dodge, then strike.',
       reward: 150,
       brain: 'echo'
     },
     {
-      id: 'overlord', name: 'THE OVERLORD', skinId: 'celestial', hp: 150,
-      blurb: 'Master of all styles. Enrages below 50% HP — beware.',
+      id: 'overlord', name: 'THE OVERLORD', skinId: 'celestial', hp: 120,
+      blurb: 'Master of all styles. Enrages below 50% HP.',
+      tip: 'No tricks — outplay him at every angle. Below 50% HP he speeds up.',
       reward: 250,
       brain: 'overlord'
     }
@@ -1920,21 +1925,21 @@
   }
 
   function bossBerserker(now) {
-    bossScheduleAttack(now, 1500, 2400);
-    var ratio = 0.7 + Math.random() * 0.3;
+    bossScheduleAttack(now, 2000, 3000);
+    var ratio = 0.5 + Math.random() * 0.35;
     bossFireAttack(now, ratio);
     // Berserker NEVER defends — no shield/dodge
   }
 
   function bossNinja(now) {
-    bossScheduleAttack(now, 700, 1400);
+    bossScheduleAttack(now, 900, 1600);
     var ratio = Math.random() * 0.2; // quick jab
     bossFireAttack(now, ratio);
-    // 70% dodge chance against player attacks
+    // 50% dodge chance against player attacks
     if (player.phase === 'windup' || player.phase === 'strike') {
       if (!player.aiHasPlanned) {
         player.aiHasPlanned = true;
-        player.aiWillDodgeThis = Math.random() < 0.70;
+        player.aiWillDodgeThis = Math.random() < 0.50;
         var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
         player.aiShieldAt = strikeAt - (40 + Math.random() * 120);
       }
@@ -1948,14 +1953,14 @@
   }
 
   function bossTurtle(now) {
-    bossScheduleAttack(now, 1800, 2800);
-    var ratio = 0.4 + Math.random() * 0.2; // medium counter-attacks
+    bossScheduleAttack(now, 2200, 3200);
+    var ratio = 0.35 + Math.random() * 0.2; // medium counter-attacks
     bossFireAttack(now, ratio);
-    // 90% shield against player attacks
+    // 70% shield against player attacks (down from 90%)
     if (player.phase === 'windup' || player.phase === 'strike') {
       if (!player.aiHasPlanned) {
         player.aiHasPlanned = true;
-        player.aiWillShieldThis = Math.random() < 0.90;
+        player.aiWillShieldThis = Math.random() < 0.70;
         var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
         player.aiShieldAt = strikeAt - (60 + Math.random() * 180);
       }
@@ -3534,7 +3539,18 @@
       ctx.textBaseline = 'top';
       ctx.fillText(String(sec), cssW / 2, 14);
 
-      if (now - matchStartTime < 4500) {
+      // Campaign intro tip (first 4 seconds)
+      if (gameMode === 'campaign' && currentBoss && (now - matchStartTime) < 4500) {
+        var fadeT = 1 - (now - matchStartTime) / 4500;
+        if (fadeT < 0) fadeT = 0;
+        ctx.fillStyle = 'rgba(255,211,77,' + fadeT + ')';
+        ctx.font = '900 22px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(currentBoss.name, cssW / 2, 70);
+        ctx.fillStyle = 'rgba(255,255,255,' + fadeT + ')';
+        ctx.font = '700 16px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.fillText(currentBoss.tip || currentBoss.blurb, cssW / 2, 100);
+      } else if (now - matchStartTime < 4500) {
         var fade = 1 - (now - matchStartTime) / 4500;
         if (fade < 0) fade = 0;
         ctx.fillStyle = 'rgba(255,255,255,' + fade + ')';
