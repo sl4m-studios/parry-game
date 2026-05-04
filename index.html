@@ -153,6 +153,24 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* ---------- Type stats info ---------- */
+  .type-info {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 18px; border-radius: 12px;
+    max-width: 480px;
+  }
+  .type-info .type-blurb {
+    font-size: 13px; color: #ddd; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .type-info .stat-row {
+    display: flex; gap: 14px; font-size: 11px;
+    color: #aaa; letter-spacing: 0.05em;
+  }
+  .type-info .stat-row span { font-weight: 800; color: #fff; }
+  .type-info .stat-pos { color: #62e878; }
+  .type-info .stat-neg { color: #ff7a7a; }
+
   /* ---------- Skin tabs ---------- */
   .skin-tabs {
     display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
@@ -595,7 +613,7 @@
   <h2 class="subtitle">SKIN VAULT</h2>
   <div id="skinCoinBal" class="coin-balance">0</div>
   <div class="skin-tabs" id="skinTabs"></div>
-  <p class="lead">Earn coins by winning matches. Climb ranks for tier skins.</p>
+  <div id="skinTypeInfo" class="type-info"></div>
   <div class="skin-grid" id="skinGrid"></div>
   <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
@@ -1396,6 +1414,18 @@
   }
   var TYPE_ORDER = ['knight', 'wizard', 'ranger', 'necromancer', 'samurai'];
   var TYPE_LABEL = { knight: 'KNIGHT', wizard: 'WIZARD', ranger: 'RANGER', necromancer: 'NECRO', samurai: 'SAMURAI' };
+  // Per-type combat stats: dmg multiplier, windup speed (lower=faster), recovery speed
+  var TYPE_STATS = {
+    knight:      { dmg: 1.00, speed: 1.00, recovery: 1.00, blurb: 'Balanced — even damage and speed' },
+    wizard:      { dmg: 1.30, speed: 1.40, recovery: 1.15, blurb: 'Slow + powerful — fireballs hit hard but cast slow' },
+    ranger:      { dmg: 0.65, speed: 0.55, recovery: 0.70, blurb: 'Fast + light — arrows fire quick but hit weak' },
+    necromancer: { dmg: 1.35, speed: 1.25, recovery: 1.10, blurb: 'Heavy reaper — slow scythe, brutal damage' },
+    samurai:     { dmg: 0.85, speed: 0.65, recovery: 0.80, blurb: 'Quick + precise — fast slashes, mid damage' }
+  };
+  function typeStats(f) {
+    if (f && f.skin && TYPE_STATS[f.skin.type]) return TYPE_STATS[f.skin.type];
+    return TYPE_STATS.knight;
+  }
 
   // ---------- Arenas ----------
   var ARENAS = [
@@ -2223,16 +2253,19 @@
   }
 
   function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
-  function attackDamage(f) { return Math.round(lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0)); }
+  function attackDamage(f) {
+    var base = lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0);
+    return Math.round(base * typeStats(f).dmg);
+  }
   function attackWindupMs(f) {
     var ratio = f.chargeRatio || 0;
-    var ms = lerp(MIN_WINDUP_MS, MAX_WINDUP_MS, ratio);
-    if (f.pwRageUntil > performance.now()) ms = Math.round(ms * 0.7); // rage buff
-    return ms;
+    var ms = lerp(MIN_WINDUP_MS, MAX_WINDUP_MS, ratio) * typeStats(f).speed;
+    if (f.pwRageUntil > performance.now()) ms = ms * 0.7; // rage buff
+    return Math.round(ms);
   }
   function attackStrikeMs(f) { return f.isHeavyAttack ? STRIKE_MS_HEAVY : STRIKE_MS; }
   function attackRecoveryMs(f) {
-    return Math.round(lerp(MIN_RECOVERY_MS, MAX_RECOVERY_MS, f.chargeRatio || 0));
+    return Math.round(lerp(MIN_RECOVERY_MS, MAX_RECOVERY_MS, f.chargeRatio || 0) * typeStats(f).recovery);
   }
 
   function transitionPhase(f, now) {
@@ -4286,9 +4319,10 @@
       ctx.moveTo(Math.cos(threshA) * (meterR - 6), -50 + Math.sin(threshA) * (meterR - 6));
       ctx.lineTo(Math.cos(threshA) * (meterR + 6), -50 + Math.sin(threshA) * (meterR + 6));
       ctx.stroke();
-      // damage preview text above charge meter
+      // damage preview text above charge meter (reflects type modifier)
       if (f.side === 'player') {
-        var dmgPreview = Math.round(lerp(MIN_DAMAGE, MAX_DAMAGE, charge));
+        var basePreview = lerp(MIN_DAMAGE, MAX_DAMAGE, charge);
+        var dmgPreview = Math.round(basePreview * typeStats(f).dmg);
         ctx.fillStyle = heavy ? '#ffd34d' : '#fff';
         ctx.font = '900 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
@@ -5535,10 +5569,34 @@
       b.addEventListener('click', function () {
         currentSkinTab = typeId;
         renderSkinTabs();
+        renderTypeInfo();
         renderSkinGrid();
       });
       tabsEl.appendChild(b);
     });
+    renderTypeInfo();
+  }
+
+  function statBadge(label, value, baseline) {
+    var pct = Math.round((value - 1) * 100);
+    var cls = pct === 0 ? '' : (pct > 0 === baseline ? 'stat-pos' : 'stat-neg');
+    var sign = pct > 0 ? '+' : '';
+    return label + ': <span class="' + cls + '">' + sign + pct + '%</span>';
+  }
+
+  function renderTypeInfo() {
+    var el = document.getElementById('skinTypeInfo');
+    if (!el) return;
+    var t = TYPE_STATS[currentSkinTab] || TYPE_STATS.knight;
+    // For damage: higher = better (positive baseline)
+    // For windup speed (lower = faster): higher = worse
+    el.innerHTML =
+      '<div class="type-blurb">' + t.blurb + '</div>' +
+      '<div class="stat-row">' +
+        statBadge('DMG', t.dmg, true) +
+        statBadge('WINDUP', t.speed, false) +
+        statBadge('RECOVERY', t.recovery, false) +
+      '</div>';
   }
 
   function renderSkinGrid() {
