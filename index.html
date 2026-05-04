@@ -585,12 +585,16 @@
   var SHIELD_UP_MS = 500;       // how long shield stays up after press
   var SHIELD_COOLDOWN_MS = 250; // cooldown after shield drops before next raise
   var ATTACK_COOLDOWN_MS = 600; // cooldown after attack recovery before next attack
-  // Heavy attack — held sword, slower windup, breaks shields
-  var HEAVY_HOLD_MS = 350;       // hold duration before sword becomes heavy
-  var HEAVY_WINDUP_MS = 1100;
-  var HEAVY_STRIKE_MS = 140;
-  var HEAVY_RECOVERY_MS = 700;
-  var HEAVY_DAMAGE = 22;
+  // Charge attack — hold sword to charge; damage scales continuously
+  var MAX_CHARGE_HOLD_MS = 1500;     // hold duration to reach max charge (1.0)
+  var HEAVY_CHARGE_THRESHOLD = 0.45; // chargeRatio at/above this = heavy (breaks shield)
+  var MIN_DAMAGE = 8;                // instant tap damage
+  var MAX_DAMAGE = 32;               // fully charged damage
+  var MIN_WINDUP_MS = 450;           // fastest swing (instant tap)
+  var MAX_WINDUP_MS = 1100;          // slowest swing (full charge)
+  var MIN_RECOVERY_MS = 380;
+  var MAX_RECOVERY_MS = 800;
+  var STRIKE_MS_HEAVY = 140;
   var SHIELD_BREAK_STUN_MS = 700;
   // Dodge — held shield, brief invulnerability + sidestep
   var DODGE_HOLD_MS = 150;       // hold duration to convert shield press into dodge
@@ -1184,9 +1188,10 @@
       attackCooldownUntil: 0,
       shieldUpUntil: 0,
       shieldCooldownUntil: 0,
-      // Heavy attack
-      isHeavyAttack: false,
-      heavyChargeStart: 0,    // when player started holding sword (0 = not charging)
+      // Charge attack
+      isHeavyAttack: false,    // derived from chargeRatio >= HEAVY_CHARGE_THRESHOLD
+      chargeRatio: 0,          // 0..1, set when attack fires from how long sword was held
+      heavyChargeStart: 0,     // when player started holding sword (0 = not charging)
       // Dodge
       dodgeUntil: 0,
       dodgeCooldownUntil: 0,
@@ -1412,7 +1417,7 @@
             enemy.shieldUpUntil = 0; enemy.shieldRaiseT = 0;
             enemy.parryStreak = 0;
             enemy.stunUntil = now + SHIELD_BREAK_STUN_MS;
-            enemy.hp = Math.max(0, enemy.hp - HEAVY_DAMAGE);
+            enemy.hp = Math.max(0, enemy.hp - attackDamage(player));
             enemy.hurtFlash = 1;
             addFlash(enemy, '#ffaa30', 130);
             addPopup(enemy, 'SHIELD BREAK', '#ffaa30');
@@ -1484,38 +1489,50 @@
   }
 
   // ---------- Attack lifecycle (shared) ----------
-  function startAttack(f, now, heavy) {
+  function startAttack(f, now, chargeOrHeavy) {
     f.phase = 'windup';
     f.phaseStart = now;
     f.strikeResolved = false;
-    f.isHeavyAttack = !!heavy;
-    if (heavy) f.heaviesThrown = (f.heaviesThrown || 0) + 1;
+    // Accept either chargeRatio (0..1) or boolean (true=0.7 heavy default)
+    var ratio;
+    if (typeof chargeOrHeavy === 'number') ratio = Math.max(0, Math.min(1, chargeOrHeavy));
+    else ratio = chargeOrHeavy ? 0.7 : 0;
+    f.chargeRatio = ratio;
+    f.isHeavyAttack = ratio >= HEAVY_CHARGE_THRESHOLD;
+    if (f.isHeavyAttack) f.heaviesThrown = (f.heaviesThrown || 0) + 1;
     // Reset AI shield planning whenever an attack starts
     f.aiWillShieldThis = false;
     f.aiShieldAt = 0;
     f.aiHasPlanned = false;
     if (gameMode === 'online' && f.side === 'player') {
-      netSend({ type: 'attack_start', heavy: !!heavy });
+      netSend({ type: 'attack_start', heavy: f.isHeavyAttack, charge: ratio });
     }
   }
 
-  function startAttackVisual(f, now, heavy) {
-    // For online: opponent's attack mirrored locally without AI fields
+  function startAttackVisual(f, now, heavy, charge) {
+    // For online: opponent's attack mirrored locally
     f.phase = 'windup';
     f.phaseStart = now;
     f.strikeResolved = false;
-    f.isHeavyAttack = !!heavy;
+    var ratio = (typeof charge === 'number') ? charge : (heavy ? 0.7 : 0);
+    f.chargeRatio = ratio;
+    f.isHeavyAttack = ratio >= HEAVY_CHARGE_THRESHOLD;
     f.aiWillShieldThis = false;
     f.aiShieldAt = 0;
   }
 
+  function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+  function attackDamage(f) { return Math.round(lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0)); }
   function attackWindupMs(f) {
-    var ms = f.isHeavyAttack ? HEAVY_WINDUP_MS : WINDUP_MS;
+    var ratio = f.chargeRatio || 0;
+    var ms = lerp(MIN_WINDUP_MS, MAX_WINDUP_MS, ratio);
     if (f.pwRageUntil > performance.now()) ms = Math.round(ms * 0.7); // rage buff
     return ms;
   }
-  function attackStrikeMs(f) { return f.isHeavyAttack ? HEAVY_STRIKE_MS : STRIKE_MS; }
-  function attackRecoveryMs(f) { return f.isHeavyAttack ? HEAVY_RECOVERY_MS : RECOVERY_MS; }
+  function attackStrikeMs(f) { return f.isHeavyAttack ? STRIKE_MS_HEAVY : STRIKE_MS; }
+  function attackRecoveryMs(f) {
+    return Math.round(lerp(MIN_RECOVERY_MS, MAX_RECOVERY_MS, f.chargeRatio || 0));
+  }
 
   function transitionPhase(f, now) {
     var elapsed = now - f.phaseStart;
@@ -1599,7 +1616,7 @@
         if (f.attacker.strikeResolved) continue;
         if (gameState !== STATE_PLAYING || !enemy || enemy.hp <= 0) continue;
         f.attacker.strikeResolved = true;
-        enemy.hp = Math.max(0, enemy.hp - HIT_DAMAGE);
+        enemy.hp = Math.max(0, enemy.hp - attackDamage(f.attacker));
         enemy.hurtFlash = 1;
         enemy.parryStreak = 0;
         addFlash(enemy, '#ff5555', 80);
@@ -1616,7 +1633,7 @@
   // ---------- AI mode resolution ----------
   function resolveStrike(attacker, now) {
     var defender = attacker.side === 'player' ? enemy : player;
-    var dmg = attacker.isHeavyAttack ? HEAVY_DAMAGE : HIT_DAMAGE;
+    var dmg = attackDamage(attacker);
 
     // Dodge has highest priority — completely avoids damage from any attack
     if (defender.dodgeUntil > now) {
@@ -1691,7 +1708,7 @@
   }
 
   // ---------- Player-controlled actions ----------
-  function tryPlayerAttack(heavy) {
+  function tryPlayerAttack(chargeRatio) {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
     var now = performance.now();
@@ -1699,9 +1716,10 @@
     if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
     if (now < player.stunUntil) return;
-    // Powerup: charge ready overrides into a free heavy
-    if (player.pwChargeReady) { heavy = true; player.pwChargeReady = false; }
-    startAttack(player, now, !!heavy);
+    var ratio = (typeof chargeRatio === 'number') ? chargeRatio : 0;
+    // Powerup: charge ready overrides into a free max charge
+    if (player.pwChargeReady) { ratio = 1; player.pwChargeReady = false; }
+    startAttack(player, now, ratio);
   }
 
   function tryPlayerShield() {
@@ -1767,7 +1785,7 @@
   function applyHitAgainst(attacker, defender, now) {
     // Opponent confirmed our strike landed on them (online)
     attacker.strikeResolved = true;
-    defender.hp = Math.max(0, defender.hp - HIT_DAMAGE);
+    defender.hp = Math.max(0, defender.hp - attackDamage(attacker));
     defender.hurtFlash = 1;
     defender.parryStreak = 0;
     defender.hitsTaken++;
@@ -1781,7 +1799,7 @@
   }
 
   function resolveStrikeOnline(attacker, now) {
-    var dmg = attacker.isHeavyAttack ? HEAVY_DAMAGE : HIT_DAMAGE;
+    var dmg = attackDamage(attacker);
 
     // Dodge first
     if (player.dodgeUntil > now) {
@@ -1963,8 +1981,8 @@
     holdState.swordDown = false;
     if (player) player.heavyChargeStart = 0;
     if (gameState !== STATE_PLAYING) return;
-    var heavy = heldFor >= HEAVY_HOLD_MS;
-    tryPlayerAttack(heavy);
+    var ratio = Math.min(1, Math.max(0, heldFor / MAX_CHARGE_HOLD_MS));
+    tryPlayerAttack(ratio);
   }
 
   function onShieldPress() {
@@ -2112,12 +2130,15 @@
       if (!f) return;
       if (f.phase === 'idle') {
         if (now >= f.nextAttackAt && f.hp > 0 && now >= f.stunUntil) {
-          // AI enemy occasionally throws a heavy attack
-          var heavy = false;
+          // AI picks a charge ratio: mostly light taps, occasional heavy charges
+          var ratio = 0;
           if (f.side === 'enemy' && (gameMode === 'ai' || gameMode === 'tutorial')) {
-            heavy = Math.random() < 0.18;
+            var roll = Math.random();
+            if (roll < 0.55) ratio = Math.random() * 0.3;            // quick tap
+            else if (roll < 0.85) ratio = 0.3 + Math.random() * 0.3;  // medium
+            else ratio = 0.5 + Math.random() * 0.5;                   // heavy charge
           }
-          startAttack(f, now, heavy);
+          startAttack(f, now, ratio);
         }
       } else {
         transitionPhase(f, now);
@@ -2774,25 +2795,68 @@
       ctx.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2);
     }
 
-    // Charge glow buildup (player heavy hold)
+    // Charge meter buildup (player holding sword)
     if (f.heavyChargeStart && f.heavyChargeStart > 0 && f.phase === 'idle') {
-      var charge = Math.min(1, (now - f.heavyChargeStart) / HEAVY_HOLD_MS);
-      var rad = 50 + 40 * charge;
-      var alpha = 0.25 + 0.55 * charge;
+      var charge = Math.min(1, (now - f.heavyChargeStart) / MAX_CHARGE_HOLD_MS);
+      // Color shifts from blue (light) → orange (mid) → red/gold (heavy)
+      var heavy = charge >= HEAVY_CHARGE_THRESHOLD;
+      var glowR, glowG, glowB;
+      if (charge < HEAVY_CHARGE_THRESHOLD) {
+        // blue → orange
+        var t1 = charge / HEAVY_CHARGE_THRESHOLD;
+        glowR = Math.round(lerp(120, 255, t1));
+        glowG = Math.round(lerp(180, 160, t1));
+        glowB = Math.round(lerp(255, 40, t1));
+      } else {
+        // orange → bright gold
+        var t2 = (charge - HEAVY_CHARGE_THRESHOLD) / (1 - HEAVY_CHARGE_THRESHOLD);
+        glowR = Math.round(lerp(255, 255, t2));
+        glowG = Math.round(lerp(160, 220, t2));
+        glowB = Math.round(lerp(40, 80, t2));
+      }
+      var glowStr = glowR + ',' + glowG + ',' + glowB;
+      // soft outer glow
+      var rad = 55 + 35 * charge;
       var grad = ctx.createRadialGradient(0, -50, 8, 0, -50, rad);
-      grad.addColorStop(0, 'rgba(255,180,40,' + alpha + ')');
-      grad.addColorStop(1, 'rgba(255,120,0,0)');
+      grad.addColorStop(0, 'rgba(' + glowStr + ',' + (0.25 + 0.55 * charge) + ')');
+      grad.addColorStop(1, 'rgba(' + glowStr + ',0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(0, -50, rad, 0, Math.PI * 2);
       ctx.fill();
-      // outer ring once fully charged
-      if (charge >= 1) {
-        ctx.strokeStyle = 'rgba(255,200,80,0.75)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0, -50, rad - 6, 0, Math.PI * 2);
-        ctx.stroke();
+      // CHARGE METER: arc ring around fighter, fills clockwise as charge builds
+      var meterR = 64;
+      // background ring
+      ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, -50, meterR, 0, Math.PI * 2);
+      ctx.stroke();
+      // filled portion (start at top, sweep clockwise)
+      ctx.strokeStyle = 'rgba(' + glowStr + ',1)';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      var startA = -Math.PI / 2;
+      ctx.arc(0, -50, meterR, startA, startA + charge * Math.PI * 2);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      // tick mark at HEAVY_CHARGE_THRESHOLD
+      var threshA = startA + HEAVY_CHARGE_THRESHOLD * Math.PI * 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(threshA) * (meterR - 6), -50 + Math.sin(threshA) * (meterR - 6));
+      ctx.lineTo(Math.cos(threshA) * (meterR + 6), -50 + Math.sin(threshA) * (meterR + 6));
+      ctx.stroke();
+      // damage preview text above charge meter
+      if (f.side === 'player') {
+        var dmgPreview = Math.round(lerp(MIN_DAMAGE, MAX_DAMAGE, charge));
+        ctx.fillStyle = heavy ? '#ffd34d' : '#fff';
+        ctx.font = '900 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(dmgPreview + ' DMG' + (heavy ? '  ⚡' : ''), 0, -50 - meterR - 10);
       }
     }
 
