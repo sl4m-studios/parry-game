@@ -153,6 +153,21 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* ---------- Skin tabs ---------- */
+  .skin-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+    max-width: 600px; margin-bottom: 4px;
+  }
+  .skin-tab {
+    font: inherit; font-weight: 800; font-size: 12px; letter-spacing: 0.05em;
+    padding: 8px 14px; border-radius: 999px; border: 0;
+    background: rgba(255,255,255,0.08); color: #aaa;
+    cursor: pointer; touch-action: manipulation;
+    position: relative;
+  }
+  .skin-tab.active { background: #ffd34d; color: #1a1300; }
+  .skin-tab .star { position: absolute; top: -4px; right: -4px; font-size: 10px; }
+
   /* ---------- Skin grid ---------- */
   .skin-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -579,6 +594,7 @@
 <div class="screen hidden" data-screen="skins">
   <h2 class="subtitle">SKIN VAULT</h2>
   <div id="skinCoinBal" class="coin-balance">0</div>
+  <div class="skin-tabs" id="skinTabs"></div>
   <p class="lead">Earn coins by winning matches. Climb ranks for tier skins.</p>
   <div class="skin-grid" id="skinGrid"></div>
   <button class="btn ghost" data-action="back-mode">← BACK</button>
@@ -879,10 +895,235 @@
     }
   ];
 
+  // Tag existing skins as Knight type with sword/shield (legacy)
+  SKINS.forEach(function (s) {
+    if (!s.type) s.type = 'knight';
+    if (!s.weaponStyle) s.weaponStyle = 'sword';
+    if (!s.offhandStyle) s.offhandStyle = 'shield';
+  });
+
+  // ---------- Wizard skins ----------
+  SKINS.push(
+    {
+      id: 'wiz_apprentice', type: 'wizard', name: 'APPRENTICE', unlockType: 'always',
+      baseColor: '#7a8acc', darkColor: '#3a4a8c',
+      trim: '#1a2a5a', capeColor: '#1a2a5a', capeColorDark: '#0a1530',
+      helmetColor: '#3a4a8c', helmetRim: '#1a2a5a',
+      plumeStyle: 'wizardHat', plumeColor: '#7a8acc',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#88a8ff', swordGuard: '#3a4a8c', swordGrip: '#1a2a5a', swordPommel: '#88a8ff',
+      shieldFace: '#1a2a5a', shieldRim: '#88a8ff', shieldBoss: '#88a8ff', shieldEmblem: 'cross'
+    },
+    {
+      id: 'wiz_pyro', type: 'wizard', name: 'PYROMANCER', unlockType: 'rank', unlockTier: 0,
+      baseColor: '#ff7030', darkColor: '#a02810',
+      trim: '#5a0808', capeColor: '#601510', capeColorDark: '#2a0808',
+      helmetColor: '#5a0808', helmetRim: '#1a0000',
+      plumeStyle: 'wizardHat', plumeColor: '#ff7030',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#ffaa30', swordGuard: '#5a0808', swordGrip: '#1a0000', swordPommel: '#ffaa30',
+      shieldFace: '#5a0808', shieldRim: '#ffaa30', shieldBoss: '#ff7030', shieldEmblem: 'sun'
+    },
+    {
+      id: 'wiz_frost', type: 'wizard', name: 'FROSTMAGE', unlockType: 'rank', unlockTier: 2,
+      baseColor: '#a8e0ff', darkColor: '#5090c0',
+      trim: '#2a4868', capeColor: '#2a4868', capeColorDark: '#0a2030',
+      helmetColor: '#2a4868', helmetRim: '#0a2030',
+      plumeStyle: 'wizardHat', plumeColor: '#a8e0ff',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#dcf4ff', swordGuard: '#5090c0', swordGrip: '#2a4868', swordPommel: '#dcf4ff',
+      shieldFace: '#2a4868', shieldRim: '#a8e0ff', shieldBoss: '#dcf4ff', shieldEmblem: 'leaf'
+    },
+    {
+      id: 'wiz_void', type: 'wizard', name: 'VOIDCASTER', unlockType: 'coin', cost: 200,
+      baseColor: '#5a3088', darkColor: '#28104a',
+      trim: '#0a0418', capeColor: '#180830', capeColorDark: '#08020c',
+      helmetColor: '#0a0418', helmetRim: '#000005',
+      plumeStyle: 'wizardHat', plumeColor: '#a060ff',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#a060ff', swordGuard: '#28104a', swordGrip: '#000005', swordPommel: '#c080ff',
+      shieldFace: '#0a0418', shieldRim: '#a060ff', shieldBoss: '#c080ff', shieldEmblem: 'eye'
+    },
+    {
+      id: 'wiz_arch', type: 'wizard', name: 'ARCHMAGE', unlockType: 'coin', cost: 800,
+      baseColor: '#fff088', darkColor: '#cca860',
+      trim: '#5a4818', capeColor: '#a06030', capeColorDark: '#5a3018',
+      helmetColor: '#5a4818', helmetRim: '#cca860',
+      plumeStyle: 'wizardHat', plumeColor: '#fff8c8',
+      weaponStyle: 'staff', offhandStyle: 'orb',
+      swordBlade: '#fff8c8', swordGuard: '#cca860', swordGrip: '#6a4818', swordPommel: '#fff088',
+      shieldFace: '#5a4818', shieldRim: '#fff088', shieldBoss: '#fff8c8', shieldEmblem: 'sun'
+    }
+  );
+
+  // ---------- Ranger skins ----------
+  SKINS.push(
+    {
+      id: 'rgr_scout', type: 'ranger', name: 'SCOUT', unlockType: 'always',
+      baseColor: '#7a9a6a', darkColor: '#3a5a2a',
+      trim: '#1a2a10', capeColor: '#2a3a18', capeColorDark: '#101808',
+      helmetColor: '#3a2818', helmetRim: '#1a1008',
+      plumeStyle: 'rangerCap', plumeColor: '#a8804a',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#cca860', swordGuard: '#5a3818', swordGrip: '#2a1a08', swordPommel: '#cca860',
+      shieldFace: '#3a2818', shieldRim: '#a8804a', shieldBoss: '#cca860', shieldEmblem: 'leaf'
+    },
+    {
+      id: 'rgr_hunter', type: 'ranger', name: 'FOREST HUNTER', unlockType: 'rank', unlockTier: 0,
+      baseColor: '#3da870', darkColor: '#206a44',
+      trim: '#163d28', capeColor: '#1a4d2c', capeColorDark: '#0c2a18',
+      helmetColor: '#3a2818', helmetRim: '#1a1008',
+      plumeStyle: 'rangerCap', plumeColor: '#a8804a',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#d8d4a0', swordGuard: '#5a3818', swordGrip: '#2a1a08', swordPommel: '#a8804a',
+      shieldFace: '#3a2818', shieldRim: '#6a4828', shieldBoss: '#a8804a', shieldEmblem: 'leaf'
+    },
+    {
+      id: 'rgr_crimson', type: 'ranger', name: 'CRIMSON ARCHER', unlockType: 'rank', unlockTier: 2,
+      baseColor: '#a84050', darkColor: '#601020',
+      trim: '#3a0a14', capeColor: '#5a0a14', capeColorDark: '#2a0508',
+      helmetColor: '#3a0a14', helmetRim: '#1a0408',
+      plumeStyle: 'rangerCap', plumeColor: '#cc5070',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#ffaaa0', swordGuard: '#601020', swordGrip: '#1a0408', swordPommel: '#cc5070',
+      shieldFace: '#3a0a14', shieldRim: '#cc5070', shieldBoss: '#ffaaa0', shieldEmblem: 'fang'
+    },
+    {
+      id: 'rgr_storm', type: 'ranger', name: 'STORMSTRIDER', unlockType: 'coin', cost: 200,
+      baseColor: '#80a8c8', darkColor: '#3a5878',
+      trim: '#152a48', capeColor: '#1a3858', capeColorDark: '#0a1828',
+      helmetColor: '#152a48', helmetRim: '#0a1828',
+      plumeStyle: 'rangerCap', plumeColor: '#ffff60',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#e0f0ff', swordGuard: '#3a5878', swordGrip: '#0a1828', swordPommel: '#ffff60',
+      shieldFace: '#152a48', shieldRim: '#80a8c8', shieldBoss: '#ffff60', shieldEmblem: 'cross'
+    },
+    {
+      id: 'rgr_phoenix', type: 'ranger', name: 'PHOENIX BOW', unlockType: 'coin', cost: 800,
+      baseColor: '#ff9040', darkColor: '#a04010',
+      trim: '#5a1a08', capeColor: '#a04010', capeColorDark: '#5a1808',
+      helmetColor: '#3a1810', helmetRim: '#1a0808',
+      plumeStyle: 'rangerCap', plumeColor: '#ffd870',
+      weaponStyle: 'bow', offhandStyle: 'quiver',
+      swordBlade: '#ffd870', swordGuard: '#a04010', swordGrip: '#1a0606', swordPommel: '#ff9040',
+      shieldFace: '#5a1a08', shieldRim: '#ffd870', shieldBoss: '#ffaa30', shieldEmblem: 'sun'
+    }
+  );
+
+  // ---------- Necromancer skins ----------
+  SKINS.push(
+    {
+      id: 'nec_apprentice', type: 'necromancer', name: 'APPRENTICE', unlockType: 'always',
+      baseColor: '#5a5a6a', darkColor: '#2a2a3a',
+      trim: '#0a0a18', capeColor: '#1a1a2a', capeColorDark: '#08080c',
+      helmetColor: '#1a1a25', helmetRim: '#000005',
+      plumeStyle: 'boneCrown', plumeColor: '#d8d4c0',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#a8a8b8', swordGuard: '#3a3a4a', swordGrip: '#0a0a18', swordPommel: '#5a5a6a',
+      shieldFace: '#1a1a25', shieldRim: '#5a5a6a', shieldBoss: '#a8a8b8', shieldEmblem: 'eye'
+    },
+    {
+      id: 'nec_bonelord', type: 'necromancer', name: 'BONELORD', unlockType: 'rank', unlockTier: 0,
+      baseColor: '#d8d4c0', darkColor: '#888070',
+      trim: '#3a3528', capeColor: '#1a1810', capeColorDark: '#08070a',
+      helmetColor: '#3a3528', helmetRim: '#1a1810',
+      plumeStyle: 'boneCrown', plumeColor: '#fff8e0',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#fff8e0', swordGuard: '#3a3528', swordGrip: '#0a0a18', swordPommel: '#d8d4c0',
+      shieldFace: '#1a1810', shieldRim: '#d8d4c0', shieldBoss: '#fff8e0', shieldEmblem: 'fang'
+    },
+    {
+      id: 'nec_plague', type: 'necromancer', name: 'PLAGUEWEAVER', unlockType: 'rank', unlockTier: 2,
+      baseColor: '#5a8050', darkColor: '#284028',
+      trim: '#0a1808', capeColor: '#142810', capeColorDark: '#080a04',
+      helmetColor: '#142810', helmetRim: '#080a04',
+      plumeStyle: 'boneCrown', plumeColor: '#a0c870',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#a0c870', swordGuard: '#284028', swordGrip: '#0a0a18', swordPommel: '#5a8050',
+      shieldFace: '#142810', shieldRim: '#5a8050', shieldBoss: '#a0c870', shieldEmblem: 'eye'
+    },
+    {
+      id: 'nec_crypt', type: 'necromancer', name: 'CRYPTKEEPER', unlockType: 'coin', cost: 200,
+      baseColor: '#3a3030', darkColor: '#1a1010',
+      trim: '#080404', capeColor: '#100808', capeColorDark: '#020000',
+      helmetColor: '#080404', helmetRim: '#000000',
+      plumeStyle: 'boneCrown', plumeColor: '#a8a0a0',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#888080', swordGuard: '#1a1010', swordGrip: '#020000', swordPommel: '#3a3030',
+      shieldFace: '#080404', shieldRim: '#a8a0a0', shieldBoss: '#888080', shieldEmblem: 'eye'
+    },
+    {
+      id: 'nec_lich', type: 'necromancer', name: 'LICH KING', unlockType: 'coin', cost: 800,
+      baseColor: '#6a40a8', darkColor: '#28104a',
+      trim: '#0a0418', capeColor: '#180830', capeColorDark: '#08020c',
+      helmetColor: '#0a0418', helmetRim: '#000005',
+      plumeStyle: 'boneCrown', plumeColor: '#88f8ff',
+      weaponStyle: 'scythe', offhandStyle: 'skull',
+      swordBlade: '#88f8ff', swordGuard: '#28104a', swordGrip: '#000005', swordPommel: '#a060ff',
+      shieldFace: '#0a0418', shieldRim: '#88f8ff', shieldBoss: '#a060ff', shieldEmblem: 'eye'
+    }
+  );
+
+  // ---------- Samurai skins ----------
+  SKINS.push(
+    {
+      id: 'sam_ronin', type: 'samurai', name: 'RONIN', unlockType: 'always',
+      baseColor: '#aa9080', darkColor: '#5a4438',
+      trim: '#2a1f18', capeColor: '#3a2820', capeColorDark: '#1a1008',
+      helmetColor: '#5a4438', helmetRim: '#2a1f18',
+      plumeStyle: 'topknot', plumeColor: '#1a0e08',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#e8e0d0', swordGuard: '#5a4438', swordGrip: '#1a0e08', swordPommel: '#aa9080',
+      shieldFace: '#3a2820', shieldRim: '#aa9080', shieldBoss: '#e8e0d0', shieldEmblem: 'fang'
+    },
+    {
+      id: 'sam_crimson', type: 'samurai', name: 'CRIMSON BLADE', unlockType: 'rank', unlockTier: 0,
+      baseColor: '#c82828', darkColor: '#700808',
+      trim: '#2a0606', capeColor: '#5a0a14', capeColorDark: '#2a0508',
+      helmetColor: '#2a0606', helmetRim: '#1a0000',
+      plumeStyle: 'topknot', plumeColor: '#1a0000',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#ffaaa0', swordGuard: '#700808', swordGrip: '#1a0000', swordPommel: '#c82828',
+      shieldFace: '#2a0606', shieldRim: '#c82828', shieldBoss: '#ffaaa0', shieldEmblem: 'fang'
+    },
+    {
+      id: 'sam_shogun', type: 'samurai', name: 'SHOGUN', unlockType: 'rank', unlockTier: 2,
+      baseColor: '#ffd060', darkColor: '#a07020',
+      trim: '#3a2808', capeColor: '#a07020', capeColorDark: '#5a3818',
+      helmetColor: '#3a2808', helmetRim: '#1a1004',
+      plumeStyle: 'topknot', plumeColor: '#ffd060',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#fff8c8', swordGuard: '#a07020', swordGrip: '#1a0e08', swordPommel: '#ffd060',
+      shieldFace: '#3a2808', shieldRim: '#ffd060', shieldBoss: '#fff8c8', shieldEmblem: 'sun'
+    },
+    {
+      id: 'sam_demon', type: 'samurai', name: 'DEMON MASK', unlockType: 'coin', cost: 200,
+      baseColor: '#3a2030', darkColor: '#1a0810',
+      trim: '#080408', capeColor: '#180810', capeColorDark: '#080208',
+      helmetColor: '#080408', helmetRim: '#000000',
+      plumeStyle: 'topknot', plumeColor: '#cc4070',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#ff80a0', swordGuard: '#1a0810', swordGrip: '#000000', swordPommel: '#cc4070',
+      shieldFace: '#080408', shieldRim: '#cc4070', shieldBoss: '#ff80a0', shieldEmblem: 'fang'
+    },
+    {
+      id: 'sam_void', type: 'samurai', name: 'VOID DAIMYO', unlockType: 'coin', cost: 800,
+      baseColor: '#404a6a', darkColor: '#1a2030',
+      trim: '#080a18', capeColor: '#0c1428', capeColorDark: '#02020c',
+      helmetColor: '#080a18', helmetRim: '#000005',
+      plumeStyle: 'topknot', plumeColor: '#88aaff',
+      weaponStyle: 'katana', offhandStyle: 'dagger',
+      swordBlade: '#a0c0ff', swordGuard: '#1a2030', swordGrip: '#000005', swordPommel: '#404a6a',
+      shieldFace: '#080a18', shieldRim: '#88aaff', shieldBoss: '#a0c0ff', shieldEmblem: 'eye'
+    }
+  );
+
   function getSkin(id) {
     for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
     return SKINS[0];
   }
+  var TYPE_ORDER = ['knight', 'wizard', 'ranger', 'necromancer', 'samurai'];
+  var TYPE_LABEL = { knight: 'KNIGHT', wizard: 'WIZARD', ranger: 'RANGER', necromancer: 'NECRO', samurai: 'SAMURAI' };
 
   // ---------- Arenas ----------
   var ARENAS = [
@@ -3006,8 +3247,354 @@
       c.bezierCurveTo(-14, -6, -2, -16, 0, -16);
       c.bezierCurveTo(2, -16, 14, -6, 8, 0);
       c.closePath(); c.fill();
+    } else if (s.plumeStyle === 'wizardHat') {
+      // Tall pointy hat
+      c.fillStyle = s.plumeColor;
+      c.beginPath();
+      c.moveTo(-12, 0);
+      c.lineTo(2, -36);
+      c.lineTo(14, 0);
+      c.closePath(); c.fill();
+      // brim
+      c.fillStyle = s.helmetRim;
+      c.fillRect(-15, -2, 30, 4);
+      // star
+      c.fillStyle = '#fff088';
+      c.beginPath();
+      c.moveTo(-2, -22); c.lineTo(0, -27); c.lineTo(2, -22);
+      c.lineTo(7, -23); c.lineTo(3, -19); c.lineTo(4, -14);
+      c.lineTo(0, -17); c.lineTo(-4, -14); c.lineTo(-3, -19);
+      c.lineTo(-7, -23); c.closePath(); c.fill();
+    } else if (s.plumeStyle === 'rangerCap') {
+      // Flat cap with sweeping side feather
+      c.fillStyle = s.helmetRim;
+      c.beginPath();
+      c.moveTo(-14, 0);
+      c.lineTo(-12, -8);
+      c.lineTo(12, -8);
+      c.lineTo(14, 0);
+      c.closePath(); c.fill();
+      // crown
+      c.fillStyle = s.plumeColor;
+      c.fillRect(-10, -12, 20, 5);
+      // sweeping feather
+      c.strokeStyle = s.plumeColor;
+      c.lineWidth = 3; c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(8, -10);
+      c.bezierCurveTo(18, -16, 24, -10, 22, -2);
+      c.stroke();
+      c.lineCap = 'butt';
+    } else if (s.plumeStyle === 'boneCrown') {
+      // Jagged bone spikes around helm
+      c.fillStyle = s.plumeColor;
+      var bones = [-13, -7, 0, 7, 13];
+      for (var i = 0; i < bones.length; i++) {
+        var bx = bones[i];
+        var bh = (i === 2 ? 22 : (Math.abs(i - 2) === 1 ? 16 : 11));
+        c.beginPath();
+        c.moveTo(bx - 2.5, 0);
+        c.lineTo(bx, -bh);
+        c.lineTo(bx + 2.5, 0);
+        c.closePath(); c.fill();
+      }
+      // base ring
+      c.fillStyle = s.helmetRim;
+      c.fillRect(-15, -2, 30, 4);
+    } else if (s.plumeStyle === 'topknot') {
+      // Bun + headband strip
+      c.fillStyle = s.helmetRim;
+      c.fillRect(-16, -3, 32, 5);
+      // ribbon ends
+      c.beginPath();
+      c.moveTo(14, 2); c.lineTo(20, 8); c.lineTo(14, 5);
+      c.closePath(); c.fill();
+      // bun
+      c.fillStyle = s.plumeColor;
+      c.beginPath();
+      c.arc(0, -8, 6, 0, Math.PI * 2); c.fill();
     }
     c.restore();
+  }
+
+  // ---------- Weapon dispatcher ----------
+  function drawWeapon(c, s) {
+    s = s || SKINS[0];
+    switch (s.weaponStyle) {
+      case 'staff':  drawStaff(c, s); return;
+      case 'bow':    drawBow(c, s); return;
+      case 'scythe': drawScythe(c, s); return;
+      case 'katana': drawKatana(c, s); return;
+      default:       drawSword(c, s); return;
+    }
+  }
+
+  function drawStaff(c, s) {
+    // Wood shaft from hand at (0,0) extending +x
+    c.strokeStyle = s.swordGrip;
+    c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-4, 0); c.lineTo(54, 0); c.stroke();
+    // Wraps
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 1.5;
+    [10, 20, 30, 40].forEach(function (x) {
+      c.beginPath(); c.moveTo(x, -3); c.lineTo(x, 3); c.stroke();
+    });
+    // Glowing orb at tip
+    var grad = c.createRadialGradient(60, 0, 2, 60, 0, 14);
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(0.45, s.swordBlade);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = grad;
+    c.beginPath(); c.arc(60, 0, 14, 0, Math.PI * 2); c.fill();
+    // Inner core
+    c.fillStyle = s.swordPommel;
+    c.beginPath(); c.arc(60, 0, 4, 0, Math.PI * 2); c.fill();
+    c.lineCap = 'butt';
+  }
+
+  function drawBow(c, s) {
+    // Curved bow body
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 3; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(0, -28);
+    c.bezierCurveTo(28, -22, 28, 22, 0, 28);
+    c.stroke();
+    // Riser (handle wrap)
+    c.fillStyle = s.swordGrip;
+    c.fillRect(-3, -10, 6, 20);
+    // String
+    c.strokeStyle = '#dcd0a8';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(0, -28);
+    c.lineTo(14, 0);
+    c.lineTo(0, 28);
+    c.stroke();
+    // Nocked arrow extends along +x
+    c.strokeStyle = s.swordPommel;
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(14, 0); c.lineTo(48, 0); c.stroke();
+    // Arrowhead
+    c.fillStyle = s.swordBlade;
+    c.beginPath();
+    c.moveTo(48, 0); c.lineTo(42, -4); c.lineTo(56, 0); c.lineTo(42, 4);
+    c.closePath(); c.fill();
+    // Fletching
+    c.strokeStyle = s.shieldRim;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(14, 0); c.lineTo(20, -4); c.moveTo(14, 0); c.lineTo(20, 4);
+    c.stroke();
+    c.lineCap = 'butt';
+  }
+
+  function drawScythe(c, s) {
+    // Long shaft
+    c.strokeStyle = s.swordGrip;
+    c.lineWidth = 5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-4, 0); c.lineTo(58, -8); c.stroke();
+    // Wraps
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 1.5;
+    [12, 24, 36, 48].forEach(function (d) {
+      c.beginPath();
+      c.moveTo(d, -d * 0.135 - 3); c.lineTo(d, -d * 0.135 + 3);
+      c.stroke();
+    });
+    // Curved blade at top
+    c.fillStyle = s.swordBlade;
+    c.beginPath();
+    c.moveTo(58, -8);
+    c.bezierCurveTo(60, -22, 28, -34, 14, -28);
+    c.bezierCurveTo(28, -28, 50, -20, 56, -10);
+    c.closePath(); c.fill();
+    // Edge highlight
+    c.strokeStyle = 'rgba(255,255,255,0.5)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(58, -10);
+    c.bezierCurveTo(58, -22, 30, -32, 16, -28);
+    c.stroke();
+    // Pommel ornament
+    c.fillStyle = s.swordPommel;
+    c.beginPath(); c.arc(-4, 0, 4, 0, Math.PI * 2); c.fill();
+    c.lineCap = 'butt';
+  }
+
+  function drawKatana(c, s) {
+    // Pommel
+    c.fillStyle = s.swordPommel;
+    c.fillRect(-2, -3, 4, 6);
+    // Grip wrap pattern
+    c.fillStyle = s.swordGrip;
+    c.fillRect(2, -3, 16, 6);
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 1;
+    [4, 8, 12, 16].forEach(function (x) {
+      c.beginPath();
+      c.moveTo(x, -3); c.lineTo(x + 2, 3);
+      c.moveTo(x + 2, -3); c.lineTo(x, 3);
+      c.stroke();
+    });
+    // Tsuba (small disc guard)
+    c.fillStyle = s.swordGuard;
+    c.beginPath(); c.arc(18, 0, 5, 0, Math.PI * 2); c.fill();
+    // Curved single-edge blade — slight upward curve
+    c.fillStyle = s.swordBlade;
+    c.beginPath();
+    c.moveTo(22, -2);
+    c.lineTo(22, 2);
+    c.bezierCurveTo(50, 4, 60, -2, 66, -3);
+    c.lineTo(70, -4);
+    c.bezierCurveTo(60, -4, 40, -3, 22, -2);
+    c.closePath(); c.fill();
+    // Edge highlight
+    c.strokeStyle = 'rgba(255,255,255,0.7)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(24, -1.5);
+    c.bezierCurveTo(46, 0.5, 58, -3, 64, -3.5);
+    c.stroke();
+  }
+
+  // ---------- Off-hand dispatcher ----------
+  function drawOffhand(c, glow, s) {
+    s = s || SKINS[0];
+    switch (s.offhandStyle) {
+      case 'orb':    drawOrb(c, glow, s); return;
+      case 'quiver': drawQuiver(c, glow, s); return;
+      case 'skull':  drawSkull(c, glow, s); return;
+      case 'dagger': drawDagger(c, glow, s); return;
+      default:       drawShield(c, glow, s); return;
+    }
+  }
+
+  function drawOrb(c, glow, s) {
+    if (glow > 0) {
+      var gg = c.createRadialGradient(0, 0, 4, 0, 0, 38);
+      gg.addColorStop(0, 'rgba(255,240,160,' + (0.85 * glow) + ')');
+      gg.addColorStop(1, 'rgba(255,240,160,0)');
+      c.fillStyle = gg;
+      c.beginPath(); c.arc(0, 0, 38, 0, Math.PI * 2); c.fill();
+    }
+    // Inner glow halo
+    var hg = c.createRadialGradient(0, 0, 4, 0, 0, 22);
+    hg.addColorStop(0, lighten(s.shieldBoss, 0.5));
+    hg.addColorStop(1, s.shieldFace);
+    c.fillStyle = hg;
+    c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.fill();
+    // Outer ring
+    c.strokeStyle = s.shieldRim;
+    c.lineWidth = 2;
+    c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.stroke();
+    // Specular highlight
+    c.fillStyle = 'rgba(255,255,255,0.45)';
+    c.beginPath(); c.arc(-5, -5, 4, 0, Math.PI * 2); c.fill();
+    // Sparkles
+    c.fillStyle = '#fff';
+    [{x:12,y:-10},{x:-13,y:8},{x:10,y:12}].forEach(function (p) {
+      c.beginPath(); c.arc(p.x, p.y, 1.2, 0, Math.PI * 2); c.fill();
+    });
+  }
+
+  function drawQuiver(c, glow, s) {
+    if (glow > 0) {
+      var gg = c.createRadialGradient(0, 0, 6, 0, 0, 36);
+      gg.addColorStop(0, 'rgba(255,240,160,' + (0.7 * glow) + ')');
+      gg.addColorStop(1, 'rgba(255,240,160,0)');
+      c.fillStyle = gg;
+      c.beginPath(); c.arc(0, 0, 36, 0, Math.PI * 2); c.fill();
+    }
+    // Quiver tube
+    c.fillStyle = s.shieldFace;
+    roundRect(c, -8, -16, 16, 32, 4); c.fill();
+    // Strap
+    c.strokeStyle = s.shieldRim;
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-10, -10); c.lineTo(10, -6); c.stroke();
+    c.beginPath(); c.moveTo(-10, 8); c.lineTo(10, 12); c.stroke();
+    // Arrow shafts poking out top
+    [-4, 0, 4].forEach(function (x) {
+      c.strokeStyle = s.shieldBoss;
+      c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(x, -16); c.lineTo(x, -24); c.stroke();
+      // fletching
+      c.strokeStyle = s.shieldRim;
+      c.beginPath(); c.moveTo(x, -22); c.lineTo(x - 2, -20); c.stroke();
+      c.beginPath(); c.moveTo(x, -22); c.lineTo(x + 2, -20); c.stroke();
+    });
+  }
+
+  function drawSkull(c, glow, s) {
+    if (glow > 0) {
+      var gg = c.createRadialGradient(0, 0, 4, 0, 0, 36);
+      gg.addColorStop(0, 'rgba(160,255,240,' + (0.85 * glow) + ')');
+      gg.addColorStop(1, 'rgba(160,255,240,0)');
+      c.fillStyle = gg;
+      c.beginPath(); c.arc(0, 0, 36, 0, Math.PI * 2); c.fill();
+    }
+    // Skull cranium
+    c.fillStyle = s.shieldBoss;
+    c.beginPath(); c.arc(0, -2, 14, 0, Math.PI * 2); c.fill();
+    // Jaw
+    c.fillStyle = s.shieldFace;
+    roundRect(c, -8, 8, 16, 6, 2); c.fill();
+    // Eye sockets
+    c.fillStyle = '#0a0a14';
+    c.beginPath(); c.arc(-5, -4, 3.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(5, -4, 3.5, 0, Math.PI * 2); c.fill();
+    // Inner glow eyes (color shifted by skin)
+    c.fillStyle = lighten(s.shieldRim, 0.3);
+    c.beginPath(); c.arc(-5, -4, 1.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(5, -4, 1.5, 0, Math.PI * 2); c.fill();
+    // Teeth
+    c.strokeStyle = s.shieldFace;
+    c.lineWidth = 1;
+    [-4, -1, 2, 5].forEach(function (x) {
+      c.beginPath(); c.moveTo(x, 8); c.lineTo(x, 14); c.stroke();
+    });
+    // Nose hole
+    c.fillStyle = '#0a0a14';
+    c.beginPath();
+    c.moveTo(0, 0); c.lineTo(-2, 4); c.lineTo(2, 4);
+    c.closePath(); c.fill();
+  }
+
+  function drawDagger(c, glow, s) {
+    if (glow > 0) {
+      var gg = c.createRadialGradient(0, 0, 4, 0, 0, 30);
+      gg.addColorStop(0, 'rgba(255,240,160,' + (0.85 * glow) + ')');
+      gg.addColorStop(1, 'rgba(255,240,160,0)');
+      c.fillStyle = gg;
+      c.beginPath(); c.arc(0, 0, 30, 0, Math.PI * 2); c.fill();
+    }
+    // Pommel + grip + small guard, blade pointing UP (off-hand parry stance)
+    c.fillStyle = s.shieldRim;
+    c.fillRect(-2, 4, 4, 6); // pommel
+    c.fillStyle = s.swordGrip;
+    c.fillRect(-2, -4, 4, 8); // grip
+    c.fillStyle = s.swordGuard;
+    c.fillRect(-7, -6, 14, 3); // guard
+    // Slim blade pointing up
+    var grad = c.createLinearGradient(-2, -22, 2, -22);
+    grad.addColorStop(0, '#7a8690');
+    grad.addColorStop(0.5, s.shieldBoss);
+    grad.addColorStop(1, '#7a8690');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.moveTo(-2, -6);
+    c.lineTo(2, -6);
+    c.lineTo(1, -22);
+    c.lineTo(0, -26);
+    c.lineTo(-1, -22);
+    c.closePath(); c.fill();
+    // edge
+    c.strokeStyle = 'rgba(255,255,255,0.6)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(0, -8); c.lineTo(0, -24); c.stroke();
   }
 
   function drawSword(c, s) {
@@ -3411,7 +3998,7 @@
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(2, -7, 32, 3);
     ctx.translate(36, 0);
-    drawShield(ctx, shieldGlow, s);
+    drawOffhand(ctx, shieldGlow, s);
     ctx.restore();
 
     // ---- Main arm with sword ----
@@ -3438,7 +4025,7 @@
     ctx.save();
     ctx.translate(facing * 22, -52);
     ctx.scale(facing, 1);
-    // Sword swoosh trail during strike (drawn in arm-anchor frame, before the arm)
+    // Strike swoosh trail (varies by weapon style)
     if (f.phase === 'strike') {
       var ts = (now - f.phaseStart) / attackStrikeMs(f);
       if (ts > 1) ts = 1;
@@ -3446,17 +4033,71 @@
       var followthrough = f.isHeavyAttack ? 2.0 : 1.4;
       var startA = pullback;
       var curA = pullback + (followthrough - pullback) * ts;
-      ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,180,60,0.40)' : 'rgba(255,255,220,0.30)';
-      ctx.lineWidth = f.isHeavyAttack ? 18 : 14;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.arc(0, 0, 96, startA, curA);
-      ctx.stroke();
-      ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,220,120,0.85)' : 'rgba(255,255,255,0.65)';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 100, startA, curA);
-      ctx.stroke();
+      var weaponStyle = (s && s.weaponStyle) || 'sword';
+
+      if (weaponStyle === 'scythe') {
+        // Wide crescent slash — bigger arc, green-tint
+        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(160,255,140,0.50)' : 'rgba(180,255,160,0.35)';
+        ctx.lineWidth = f.isHeavyAttack ? 26 : 20;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
+        ctx.strokeStyle = 'rgba(220,255,200,0.85)';
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(0, 0, 104, startA, curA); ctx.stroke();
+      } else if (weaponStyle === 'katana') {
+        // Razor-thin slash line
+        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,200,120,0.7)' : 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
+      } else if (weaponStyle === 'staff') {
+        // Magic burst at orb position (leading edge)
+        var orbA = curA;
+        var orbX = Math.cos(orbA) * 100;
+        var orbY = Math.sin(orbA) * 100;
+        var grd = ctx.createRadialGradient(orbX, orbY, 4, orbX, orbY, 36);
+        grd.addColorStop(0, 'rgba(180,200,255,0.8)');
+        grd.addColorStop(0.5, 'rgba(150,180,255,0.4)');
+        grd.addColorStop(1, 'rgba(100,150,255,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(orbX, orbY, 36, 0, Math.PI * 2); ctx.fill();
+        // Trail
+        ctx.strokeStyle = 'rgba(180,200,255,0.4)';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
+      } else if (weaponStyle === 'bow') {
+        // Arrow projectile streak — quick straight line from bow to forward
+        var tipA = curA;
+        var tipX = Math.cos(tipA) * 110;
+        var tipY = Math.sin(tipA) * 110;
+        ctx.strokeStyle = 'rgba(255,255,200,0.85)';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(tipA) * 30, Math.sin(tipA) * 30);
+        ctx.lineTo(tipX, tipY);
+        ctx.stroke();
+        // Speed lines
+        ctx.strokeStyle = 'rgba(255,255,200,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(tipA) * 50, Math.sin(tipA) * 50 - 4);
+        ctx.lineTo(tipX, tipY - 4);
+        ctx.moveTo(Math.cos(tipA) * 50, Math.sin(tipA) * 50 + 4);
+        ctx.lineTo(tipX, tipY + 4);
+        ctx.stroke();
+      } else {
+        // Default sword swoosh
+        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,180,60,0.40)' : 'rgba(255,255,220,0.30)';
+        ctx.lineWidth = f.isHeavyAttack ? 18 : 14;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, 0, 96, startA, curA); ctx.stroke();
+        ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,220,120,0.85)' : 'rgba(255,255,255,0.65)';
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(0, 0, 100, startA, curA); ctx.stroke();
+      }
+      ctx.lineCap = 'butt';
     }
     ctx.rotate(armAngle);
     ctx.fillStyle = trim;
@@ -3469,7 +4110,7 @@
     ctx.fill();
     // sword (anchored at hand)
     ctx.translate(42, 0);
-    drawSword(ctx, s);
+    drawWeapon(ctx, s);
     ctx.restore();
 
     ctx.restore();
@@ -4260,18 +4901,47 @@
     }
   }
 
+  var currentSkinTab = null;
   function openSkins() {
-    var grid = document.getElementById('skinGrid');
     var bal = document.getElementById('skinCoinBal');
     if (bal) bal.textContent = profile.coins;
+    // Default tab = type of currently equipped skin
+    if (!currentSkinTab) currentSkinTab = (getSkin(profile.skin) || SKINS[0]).type || 'knight';
+    renderSkinTabs();
+    renderSkinGrid();
+    showScreen('skins');
+  }
+
+  function renderSkinTabs() {
+    var tabsEl = document.getElementById('skinTabs');
+    tabsEl.innerHTML = '';
+    var equippedType = (getSkin(profile.skin) || SKINS[0]).type;
+    TYPE_ORDER.forEach(function (typeId) {
+      var b = document.createElement('button');
+      b.className = 'skin-tab' + (typeId === currentSkinTab ? ' active' : '');
+      b.textContent = TYPE_LABEL[typeId] || typeId;
+      if (typeId === equippedType) {
+        var s = document.createElement('span');
+        s.className = 'star'; s.textContent = '⭐';
+        b.appendChild(s);
+      }
+      b.addEventListener('click', function () {
+        currentSkinTab = typeId;
+        renderSkinTabs();
+        renderSkinGrid();
+      });
+      tabsEl.appendChild(b);
+    });
+  }
+
+  function renderSkinGrid() {
+    var grid = document.getElementById('skinGrid');
     grid.innerHTML = '';
-    SKINS.forEach(function (skin) {
+    SKINS.filter(function (s) { return s.type === currentSkinTab; }).forEach(function (skin) {
       var unlocked = isSkinUnlocked(skin);
       var equipped = profile.skin === skin.id;
       var card = document.createElement('div');
-      card.className = 'skin-card' +
-        (unlocked ? '' : ' locked') +
-        (equipped ? ' equipped' : '');
+      card.className = 'skin-card' + (unlocked ? '' : ' locked') + (equipped ? ' equipped' : '');
       var unlockText;
       if (unlocked) {
         unlockText = equipped ? 'EQUIPPED' : 'TAP TO EQUIP';
@@ -4294,20 +4964,22 @@
         card.addEventListener('click', function () {
           profile.skin = skin.id;
           saveProfile();
-          openSkins();
+          renderSkinTabs();
+          renderSkinGrid();
         });
       } else if (skin.unlockType === 'coin' && canAffordSkin(skin)) {
-        // Override locked styling — make affordable
         card.classList.remove('locked');
         card.addEventListener('click', function () {
           if (confirm('Buy ' + skin.name + ' for ' + skin.cost + ' coins?')) {
-            if (purchaseSkin(skin.id)) openSkins();
+            if (purchaseSkin(skin.id)) {
+              renderSkinTabs();
+              renderSkinGrid();
+            }
           }
         });
       }
       grid.appendChild(card);
     });
-    showScreen('skins');
   }
 
   function drawSkinPreview(cv, skin) {
@@ -4372,10 +5044,10 @@
     c.restore();
     // shield + sword icons in corners
     c.save(); c.translate(20, h-22); c.scale(0.6, 0.6);
-    drawShield(c, 0, skin);
+    drawOffhand(c, 0, skin);
     c.restore();
     c.save(); c.translate(w - 36, h - 28); c.rotate(-0.4); c.scale(0.45, 0.45);
-    drawSword(c, skin);
+    drawWeapon(c, skin);
     c.restore();
   }
 
