@@ -144,6 +144,15 @@
   .toggle-btn.danger { background: #883333; color: #fff; }
   .toggle-btn.danger:hover { background: #aa3333; }
 
+  /* Make the skins screen scrollable since the grid can overflow */
+  .screen[data-screen="skins"] {
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding-top: 32px;
+    padding-bottom: 32px;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* ---------- Skin grid ---------- */
   .skin-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -173,6 +182,65 @@
   .skin-card .lock-icon {
     position: absolute; top: 8px; right: 10px;
     font-size: 14px; color: #aaa;
+  }
+
+  /* ---------- Arena selector ---------- */
+  .arena-row {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    max-width: 480px;
+  }
+  .arena-card {
+    width: 80px; height: 56px; border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    cursor: pointer; position: relative;
+    display: flex; align-items: flex-end; justify-content: center;
+    overflow: hidden; transition: transform 0.12s, border-color 0.2s;
+  }
+  .arena-card:hover { transform: translateY(-2px); }
+  .arena-card.selected { border-color: #ffd34d; }
+  .arena-card.random { background: linear-gradient(135deg, #444, #222); }
+  .arena-card.keep { background: linear-gradient(180deg, #1a1230, #0a0a14); }
+  .arena-card.pit { background: linear-gradient(180deg, #3a0a08, #1a0202); }
+  .arena-card.peak { background: linear-gradient(180deg, #1a2438, #080d18); }
+  .arena-card.void { background: linear-gradient(180deg, #2a0a3a, #0a0218); }
+  .arena-card .arena-name {
+    color: rgba(255,255,255,0.9); font-size: 9px; font-weight: 800;
+    padding: 3px 0; background: rgba(0,0,0,0.4); width: 100%; text-align: center;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------- Daily challenges ---------- */
+  .daily-list {
+    display: flex; flex-direction: column; gap: 12px;
+    width: 320px; max-width: 90%;
+  }
+  .daily-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .daily-card.complete { border-color: #ffd34d; background: rgba(255,211,77,0.10); }
+  .daily-card .daily-text { font-weight: 700; font-size: 14px; }
+  .daily-card .daily-progress {
+    height: 8px; background: rgba(255,255,255,0.1);
+    border-radius: 999px; overflow: hidden;
+  }
+  .daily-card .daily-fill {
+    height: 100%; background: linear-gradient(90deg, #ffd34d, #ff9c20);
+    transition: width 0.4s;
+  }
+  .daily-card .daily-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: #aaa;
+  }
+  .daily-card .daily-claim {
+    font: inherit; font-weight: 800; font-size: 12px;
+    padding: 6px 12px; border: 0; border-radius: 999px;
+    background: #ffd34d; color: #1a1300; cursor: pointer;
+  }
+  .daily-card .daily-claim:disabled {
+    background: rgba(255,255,255,0.10); color: #666; cursor: default;
   }
 
   /* ---------- In-game action buttons ---------- */
@@ -399,12 +467,21 @@
     <div class="career-stats" id="modeCareer"></div>
     <div class="mode-note">VS Player matches affect your rank. VS AI is unranked practice.</div>
   </div>
+  <div class="arena-row" id="arenaRow"></div>
   <div class="btn-row">
     <button class="btn" data-action="mode-ai">VS AI</button>
     <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
     <button class="btn secondary" data-action="open-skins">SKINS</button>
+    <button class="btn secondary" data-action="open-dailies">DAILIES</button>
   </div>
   <button class="btn ghost" data-action="back-boot">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="dailies">
+  <h2 class="subtitle">DAILY CHALLENGES</h2>
+  <div id="dailyStreak" class="small">Streak: 0 days</div>
+  <div class="daily-list" id="dailyList"></div>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
 
 <div class="screen hidden" data-screen="skins">
@@ -508,6 +585,17 @@
   var SHIELD_UP_MS = 500;       // how long shield stays up after press
   var SHIELD_COOLDOWN_MS = 250; // cooldown after shield drops before next raise
   var ATTACK_COOLDOWN_MS = 600; // cooldown after attack recovery before next attack
+  // Heavy attack — held sword, slower windup, breaks shields
+  var HEAVY_HOLD_MS = 350;       // hold duration before sword becomes heavy
+  var HEAVY_WINDUP_MS = 1100;
+  var HEAVY_STRIKE_MS = 140;
+  var HEAVY_RECOVERY_MS = 700;
+  var HEAVY_DAMAGE = 22;
+  var SHIELD_BREAK_STUN_MS = 700;
+  // Dodge — held shield, brief invulnerability + sidestep
+  var DODGE_HOLD_MS = 150;       // hold duration to convert shield press into dodge
+  var DODGE_MS = 280;            // i-frame duration
+  var DODGE_COOLDOWN_MS = 1500;
 
   var LOBBY_ID = 'parry-of-ages-lobby-2026-v2';
   var MATCHMAKING_TIMEOUT_MS = 14000;
@@ -689,6 +777,32 @@
     for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i];
     return SKINS[0];
   }
+
+  // ---------- Arenas ----------
+  var ARENAS = [
+    { id: 'keep', name: 'TWILIGHT KEEP',
+      bgTop: '#1a1230', bgBot: '#0a0a14', floorTop: '#2a2244', floorBot: '#0a0a14',
+      hazard: null },
+    { id: 'pit', name: 'MOLTEN PIT',
+      bgTop: '#3a0a08', bgBot: '#1a0202', floorTop: '#5a1010', floorBot: '#200505',
+      hazard: 'flame', hazardEvery: 6000, hazardTelegraph: 1200, hazardDamage: 8 },
+    { id: 'peak', name: 'STORM PEAK',
+      bgTop: '#1a2438', bgBot: '#080d18', floorTop: '#1f3050', floorBot: '#050810',
+      hazard: 'lightning', hazardEvery: 9000, hazardTelegraph: 1500, hazardDamage: 10 },
+    { id: 'void', name: 'VOID GARDEN',
+      bgTop: '#2a0a3a', bgBot: '#0a0218', floorTop: '#3a0c4a', floorBot: '#0a0218',
+      hazard: null, particles: true }
+  ];
+  function getArena(id) {
+    for (var i = 0; i < ARENAS.length; i++) if (ARENAS[i].id === id) return ARENAS[i];
+    return ARENAS[0];
+  }
+  var currentArena = ARENAS[0];
+  var hazards = [];      // active/scheduled: { type, x, impactAt, telegraphAt }
+  var nextHazardAt = 0;
+  var powerup = null;    // { type, x, y, spawnAt, grabbedBy }
+  var nextPowerupAt = 0;
+  var voidParticles = [];
   function isSkinUnlocked(skin) {
     if (skin.unlockType === 'always') return true;
     if (skin.unlockType === 'rank') {
@@ -745,6 +859,7 @@
           skin: p.skin || 'knight',
           coins: typeof p.coins === 'number' ? p.coins : 0,
           purchasedSkins: Array.isArray(p.purchasedSkins) ? p.purchasedSkins : [],
+          daily: (p.daily && typeof p.daily === 'object') ? p.daily : { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
           stats: {
             matches: (p.stats && p.stats.matches) || 0,
             wins: (p.stats && p.stats.wins) || 0,
@@ -761,12 +876,125 @@
       rp: 0, tutorialDone: false,
       username: makeDefaultUsername(), soundOn: true, skin: 'knight',
       coins: 0, purchasedSkins: [],
+      daily: { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0 }
     };
   }
 
   function saveProfile() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(profile)); } catch (e) {}
+  }
+
+  // ---------- Daily Challenges ----------
+  var CHALLENGE_POOL = [
+    { id: 'win3', text: 'Win 3 matches', metric: 'wins', target: 3, reward: 40 },
+    { id: 'parry15', text: 'Land 15 parries', metric: 'parries', target: 15, reward: 30 },
+    { id: 'noHit', text: 'Win without taking a hit', metric: 'noHitWin', target: 1, reward: 60 },
+    { id: 'super1', text: 'Land a SUPER', metric: 'supers', target: 1, reward: 25 },
+    { id: 'onlineWin2', text: 'Win 2 online matches', metric: 'onlineWins', target: 2, reward: 50 },
+    { id: 'heavy5', text: 'Land 5 heavy attacks', metric: 'heavyHits', target: 5, reward: 35 },
+    { id: 'dodge10', text: 'Successfully dodge 10 times', metric: 'dodgeCount', target: 10, reward: 35 },
+    { id: 'break1', text: "Break an opponent's shield", metric: 'shieldBreaks', target: 1, reward: 40 },
+    { id: 'match5', text: 'Play 5 matches', metric: 'matches', target: 5, reward: 15 },
+    { id: 'streak5', text: 'Reach a 5-parry streak in one match', metric: 'maxStreak', target: 5, reward: 50 },
+    { id: 'paidSkinWin', text: 'Win a match in a paid skin', metric: 'paidSkinWin', target: 1, reward: 45 },
+    { id: 'coins100', text: 'Earn 100 coins in matches', metric: 'coinsEarned', target: 100, reward: 20 }
+  ];
+
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function yesterdayKey() {
+    var d = new Date(); d.setDate(d.getDate() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function rollDailyChallenges() {
+    var pool = CHALLENGE_POOL.slice();
+    // shuffle
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, 3).map(function (c) {
+      return { id: c.id, text: c.text, metric: c.metric, target: c.target, reward: c.reward, progress: 0, claimed: false };
+    });
+  }
+
+  function refreshDailiesIfNeeded() {
+    var today = todayKey();
+    if (!profile.daily) profile.daily = { date: '', challenges: [], streakDays: 0, lastClaimDate: '' };
+    if (profile.daily.date !== today) {
+      profile.daily.date = today;
+      profile.daily.challenges = rollDailyChallenges();
+      // streak handling: increment if claimed yesterday, else reset
+      if (profile.daily.lastClaimDate === yesterdayKey()) {
+        profile.daily.streakDays = (profile.daily.streakDays || 0) + 1;
+      } else if (profile.daily.lastClaimDate !== today) {
+        profile.daily.streakDays = 0;
+      }
+      saveProfile();
+    }
+  }
+
+  function tickChallenge(metric, amount, isMax) {
+    if (!profile.daily || !profile.daily.challenges) return;
+    var changed = false;
+    profile.daily.challenges.forEach(function (c) {
+      if (c.metric !== metric || c.claimed) return;
+      var before = c.progress;
+      if (isMax) c.progress = Math.max(c.progress, amount);
+      else c.progress = Math.min(c.target, c.progress + amount);
+      if (c.progress !== before) changed = true;
+    });
+    if (changed) saveProfile();
+  }
+
+  function claimChallenge(idx) {
+    var c = profile.daily.challenges[idx];
+    if (!c || c.claimed || c.progress < c.target) return;
+    c.claimed = true;
+    profile.coins += c.reward;
+    profile.daily.lastClaimDate = todayKey();
+    // 7-day streak bonus
+    if (profile.daily.streakDays >= 6) {
+      profile.coins += 50;
+      profile.daily.streakDays = 0; // reset to start a new cycle
+    }
+    saveProfile();
+    openDailies();
+  }
+
+  function openDailies() {
+    refreshDailiesIfNeeded();
+    var list = document.getElementById('dailyList');
+    list.innerHTML = '';
+    var streakEl = document.getElementById('dailyStreak');
+    if (streakEl) {
+      var s = profile.daily.streakDays || 0;
+      streakEl.textContent = 'Streak: ' + s + ' day' + (s === 1 ? '' : 's') + (s >= 6 ? ' (7th day = +50 🪙 bonus!)' : '');
+    }
+    profile.daily.challenges.forEach(function (c, i) {
+      var pct = Math.round(100 * Math.min(1, c.progress / c.target));
+      var done = c.progress >= c.target;
+      var card = document.createElement('div');
+      card.className = 'daily-card' + (done ? ' complete' : '');
+      card.innerHTML =
+        '<div class="daily-text">' + c.text + '</div>' +
+        '<div class="daily-progress"><div class="daily-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="daily-meta">' +
+          '<span>' + c.progress + ' / ' + c.target + '</span>' +
+          '<span>🪙 ' + c.reward + '</span>' +
+          '<button class="daily-claim" data-idx="' + i + '"' + (c.claimed ? ' disabled' : (done ? '' : ' disabled')) + '>' +
+            (c.claimed ? 'CLAIMED' : (done ? 'CLAIM' : 'IN PROGRESS')) +
+          '</button>' +
+        '</div>';
+      var btn = card.querySelector('button');
+      btn.addEventListener('click', function () { claimChallenge(parseInt(this.getAttribute('data-idx'), 10)); });
+      list.appendChild(card);
+    });
+    showScreen('dailies');
   }
 
   function awardMatchOutcome(won, mode) {
@@ -956,6 +1184,22 @@
       attackCooldownUntil: 0,
       shieldUpUntil: 0,
       shieldCooldownUntil: 0,
+      // Heavy attack
+      isHeavyAttack: false,
+      heavyChargeStart: 0,    // when player started holding sword (0 = not charging)
+      // Dodge
+      dodgeUntil: 0,
+      dodgeCooldownUntil: 0,
+      dodgeFlashAt: 0,        // for visual flicker animation
+      // Stun (after shield break)
+      stunUntil: 0,
+      // Powerups
+      pwHealedAt: 0,
+      pwChargeReady: false,   // free heavy on next attack
+      pwRageUntil: 0,         // rage buff active until this time
+      // Tutorial counters
+      heaviesThrown: 0,
+      dodgesUsed: 0,
       // Stats
       parryCount: 0,
       superCount: 0,
@@ -1011,9 +1255,11 @@
     });
     c.on('error', function () {});
     net.connected = true;
-    // Send greeting with username + skin
+    // Send greeting with username + skin (host also includes arena)
     setTimeout(function () {
-      netSend({ type: 'hello', name: profile.username, skin: profile.skin });
+      var hello = { type: 'hello', name: profile.username, skin: profile.skin };
+      if (net.isHost && currentArena) hello.arena = currentArena.id;
+      netSend(hello);
     }, 50);
   }
 
@@ -1130,23 +1376,75 @@
   // Networked match handlers
   function onNetMessage(msg) {
     if (!msg || typeof msg !== 'object') return;
-    // hello is allowed any time
+    // hello/arena are allowed any time
     if (msg.type === 'hello') {
       net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
       net.opponentSkin = msg.skin || 'knight';
+      if (msg.arena) net.opponentArena = msg.arena;
       if (enemy) {
         enemy.username = net.opponentName;
         enemy.skin = getSkin(net.opponentSkin);
       }
       return;
     }
+    if (msg.type === 'arena') {
+      net.opponentArena = msg.id;
+      if (gameState === STATE_PLAYING && !net.isHost) currentArena = getArena(msg.id);
+      return;
+    }
     if (gameState !== STATE_PLAYING) return;
     var now = performance.now();
     switch (msg.type) {
       case 'attack_start':
-        // Opponent began an attack; mirror it locally
         if (enemy && enemy.phase === 'idle') {
-          startAttackVisual(enemy, now);
+          startAttackVisual(enemy, now, !!msg.heavy);
+        }
+        break;
+      case 'dodge':
+      case 'dodged':
+        if (enemy) triggerDodge(enemy, now);
+        break;
+      case 'shield_break':
+        // Opponent says they had shield break — applies to my attacking player
+        if (player && !player.strikeResolved) {
+          clearAttackerFallback(player);
+          if (enemy) {
+            enemy.shieldUpUntil = 0; enemy.shieldRaiseT = 0;
+            enemy.parryStreak = 0;
+            enemy.stunUntil = now + SHIELD_BREAK_STUN_MS;
+            enemy.hp = Math.max(0, enemy.hp - HEAVY_DAMAGE);
+            enemy.hurtFlash = 1;
+            addFlash(enemy, '#ffaa30', 130);
+            addPopup(enemy, 'SHIELD BREAK', '#ffaa30');
+            shake = Math.max(shake, 22);
+            playHit();
+          }
+          player.strikeResolved = true;
+          tickChallenge('shieldBreaks', 1);
+          checkEnd();
+        }
+        break;
+      case 'hazard':
+        // Mirror host hazard spawn
+        if (currentArena && currentArena.hazard) {
+          hazards.push({
+            type: currentArena.hazard,
+            x: msg.x,
+            telegraphAt: now,
+            impactAt: now + currentArena.hazardTelegraph,
+            damage: currentArena.hazardDamage,
+            resolved: true // client doesn't apply damage; visual only
+          });
+        }
+        break;
+      case 'powerup_spawn':
+        powerup = { type: msg.powType, x: cssW * 0.5, spawnAt: now, grabbedBy: null };
+        break;
+      case 'powerup_grab':
+        if (powerup) {
+          // 'side' from host's perspective: 'player' = host's player = our enemy here; 'enemy' = host's enemy = our player
+          var grabberOnOurClient = msg.side === 'player' ? enemy : player;
+          grantPowerup(grabberOnOurClient);
         }
         break;
       case 'parry':
@@ -1186,39 +1484,53 @@
   }
 
   // ---------- Attack lifecycle (shared) ----------
-  function startAttack(f, now) {
+  function startAttack(f, now, heavy) {
     f.phase = 'windup';
     f.phaseStart = now;
     f.strikeResolved = false;
+    f.isHeavyAttack = !!heavy;
+    if (heavy) f.heaviesThrown = (f.heaviesThrown || 0) + 1;
     // Reset AI shield planning whenever an attack starts
     f.aiWillShieldThis = false;
     f.aiShieldAt = 0;
     f.aiHasPlanned = false;
     if (gameMode === 'online' && f.side === 'player') {
-      netSend({ type: 'attack_start' });
+      netSend({ type: 'attack_start', heavy: !!heavy });
     }
   }
 
-  function startAttackVisual(f, now) {
+  function startAttackVisual(f, now, heavy) {
     // For online: opponent's attack mirrored locally without AI fields
     f.phase = 'windup';
     f.phaseStart = now;
     f.strikeResolved = false;
-    f.aiWillParryThis = false;
-    f.aiParryAt = 0;
+    f.isHeavyAttack = !!heavy;
+    f.aiWillShieldThis = false;
+    f.aiShieldAt = 0;
   }
+
+  function attackWindupMs(f) {
+    var ms = f.isHeavyAttack ? HEAVY_WINDUP_MS : WINDUP_MS;
+    if (f.pwRageUntil > performance.now()) ms = Math.round(ms * 0.7); // rage buff
+    return ms;
+  }
+  function attackStrikeMs(f) { return f.isHeavyAttack ? HEAVY_STRIKE_MS : STRIKE_MS; }
+  function attackRecoveryMs(f) { return f.isHeavyAttack ? HEAVY_RECOVERY_MS : RECOVERY_MS; }
 
   function transitionPhase(f, now) {
     var elapsed = now - f.phaseStart;
-    if (f.phase === 'windup' && elapsed >= WINDUP_MS) {
+    if (f.phase === 'windup' && elapsed >= attackWindupMs(f)) {
       f.phase = 'strike';
       f.phaseStart = now;
-    } else if (f.phase === 'strike' && elapsed >= STRIKE_MS) {
+    } else if (f.phase === 'strike' && elapsed >= attackStrikeMs(f)) {
       if (!f.strikeResolved) {
         if (gameMode === 'tutorial') {
-          // Tutorial: no damage to player, but honor shield blocks for the streak lesson
+          // Tutorial: no damage to player, but honor shield blocks + dodges for lessons
           if (f.side === 'enemy') {
-            if (player.shieldUpUntil > now) {
+            if (player.dodgeUntil > now) {
+              addPopup(f, 'WHIFF', '#888');
+              tickChallenge('dodgeCount', 1);
+            } else if (player.shieldUpUntil > now) {
               player.parryStreak += 1;
               var ts = false;
               if (player.parryStreak >= PARRY_FOR_SUPER) { ts = true; player.parryStreak = 0; }
@@ -1248,9 +1560,10 @@
       }
       f.phase = 'recovery';
       f.phaseStart = now;
-    } else if (f.phase === 'recovery' && elapsed >= RECOVERY_MS) {
+    } else if (f.phase === 'recovery' && elapsed >= attackRecoveryMs(f)) {
       f.phase = 'idle';
       f.phaseStart = now;
+      f.isHeavyAttack = false;
       if (f.side === 'player') {
         // Player chooses when to attack — no auto-schedule, just set cooldown
         f.attackCooldownUntil = now + ATTACK_COOLDOWN_MS;
@@ -1302,30 +1615,68 @@
 
   // ---------- AI mode resolution ----------
   function resolveStrike(attacker, now) {
-    // Check if defender has shield up — if so, treat as parry/block
     var defender = attacker.side === 'player' ? enemy : player;
+    var dmg = attacker.isHeavyAttack ? HEAVY_DAMAGE : HIT_DAMAGE;
+
+    // Dodge has highest priority — completely avoids damage from any attack
+    if (defender.dodgeUntil > now) {
+      attacker.strikeResolved = true;
+      defender.parryStreak = 0; // dodging breaks block streak (can't double-dip)
+      addPopup(attacker, 'WHIFF', '#888');
+      playWhiff();
+      tickChallenge('dodgeCount', 1);
+      return;
+    }
+
+    // Shield: blocks light, BREAKS on heavy
     if (defender.shieldUpUntil > now) {
+      if (attacker.isHeavyAttack) {
+        // SHIELD BREAK
+        defender.shieldUpUntil = 0;
+        defender.shieldRaiseT = 0;
+        defender.shieldCooldownUntil = now + 1200; // longer punish
+        defender.stunUntil = now + SHIELD_BREAK_STUN_MS;
+        defender.parryStreak = 0;
+        defender.hp = Math.max(0, defender.hp - dmg);
+        defender.hurtFlash = 1;
+        defender.hitsTaken++;
+        attacker.hitsDealt++;
+        addFlash(defender, '#ffaa30', 130);
+        addPopup(defender, 'SHIELD BREAK', '#ffaa30');
+        shake = Math.max(shake, 22);
+        bgFlash = Math.max(bgFlash, 0.55);
+        playHit();
+        addParrySparks(defender, attacker, true);
+        attacker.strikeResolved = true;
+        tickChallenge('shieldBreaks', 1);
+        checkEnd();
+        return;
+      }
+      // Light → block
       defender.parryStreak += 1;
       var isSuper = false;
-      if (defender.parryStreak >= PARRY_FOR_SUPER) {
-        isSuper = true;
-        defender.parryStreak = 0;
-      }
+      if (defender.parryStreak >= PARRY_FOR_SUPER) { isSuper = true; defender.parryStreak = 0; }
       defender.parryCount++;
       if (isSuper) defender.superCount++;
       applyParryAgainst(attacker, defender, now, isSuper);
+      tickChallenge('parries', 1);
+      if (isSuper) tickChallenge('supers', 1);
+      tickChallenge('maxStreak', defender.parryCount > 0 ? Math.max(0, defender.parryStreak) : 0, true);
       return;
     }
-    defender.hp = Math.max(0, defender.hp - HIT_DAMAGE);
+
+    // Open hit
+    defender.hp = Math.max(0, defender.hp - dmg);
     defender.hurtFlash = 1;
     defender.parryStreak = 0;
     defender.hitsTaken++;
     attacker.hitsDealt++;
-    addFlash(defender, '#ff5555', 80);
-    addPopup(defender, 'HIT', '#ff7070');
-    shake = Math.max(shake, 12);
-    bgFlash = Math.max(bgFlash, 0.35);
+    addFlash(defender, attacker.isHeavyAttack ? '#ffaa30' : '#ff5555', attacker.isHeavyAttack ? 110 : 80);
+    addPopup(defender, attacker.isHeavyAttack ? 'HEAVY HIT' : 'HIT', attacker.isHeavyAttack ? '#ffaa30' : '#ff7070');
+    shake = Math.max(shake, attacker.isHeavyAttack ? 18 : 12);
+    bgFlash = Math.max(bgFlash, attacker.isHeavyAttack ? 0.5 : 0.35);
     playHit();
+    if (attacker === player && attacker.isHeavyAttack) tickChallenge('heavyHits', 1);
     attacker.strikeResolved = true;
     checkEnd();
   }
@@ -1340,14 +1691,17 @@
   }
 
   // ---------- Player-controlled actions ----------
-  function tryPlayerAttack() {
+  function tryPlayerAttack(heavy) {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
     var now = performance.now();
     if (player.phase !== 'idle') return;
     if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
-    startAttack(player, now);
+    if (now < player.stunUntil) return;
+    // Powerup: charge ready overrides into a free heavy
+    if (player.pwChargeReady) { heavy = true; player.pwChargeReady = false; }
+    startAttack(player, now, !!heavy);
   }
 
   function tryPlayerShield() {
@@ -1355,9 +1709,21 @@
     if (gameState !== STATE_PLAYING) return;
     var now = performance.now();
     if (now < player.shieldCooldownUntil) return;
-    if (player.shieldUpUntil > now) return; // already up
+    if (player.shieldUpUntil > now) return;
+    if (now < player.stunUntil) return;
     raiseShield(player, now);
     if (gameMode === 'online') netSend({ type: 'shield_up' });
+  }
+
+  function tryPlayerDodge() {
+    if (!player) return;
+    if (gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (now < player.dodgeCooldownUntil) return;
+    if (player.hp <= 0) return;
+    if (now < player.stunUntil) return;
+    triggerDodge(player, now);
+    if (gameMode === 'online') netSend({ type: 'dodge' });
   }
 
   function raiseShield(f, now) {
@@ -1365,6 +1731,14 @@
     f.shieldCooldownUntil = f.shieldUpUntil + SHIELD_COOLDOWN_MS;
     f.shieldRaiseAt = now;
     f.shieldRaiseT = 1;
+  }
+
+  function triggerDodge(f, now) {
+    f.dodgeUntil = now + DODGE_MS;
+    f.dodgeCooldownUntil = now + DODGE_COOLDOWN_MS;
+    f.dodgeFlashAt = now;
+    f.dodgesUsed = (f.dodgesUsed || 0) + 1;
+    addPopup(f, 'DODGE', '#a0e8ff');
   }
 
   // ---------- Parry resolution ----------
@@ -1407,8 +1781,42 @@
   }
 
   function resolveStrikeOnline(attacker, now) {
-    // Online defender (the local player) decides outcome based on own shield state, notifies attacker
+    var dmg = attacker.isHeavyAttack ? HEAVY_DAMAGE : HIT_DAMAGE;
+
+    // Dodge first
+    if (player.dodgeUntil > now) {
+      attacker.strikeResolved = true;
+      addPopup(attacker, 'WHIFF', '#888');
+      playWhiff();
+      tickChallenge('dodgeCount', 1);
+      netSend({ type: 'dodged' });
+      return;
+    }
+
     if (player.shieldUpUntil > now) {
+      if (attacker.isHeavyAttack) {
+        // SHIELD BREAK on local player
+        player.shieldUpUntil = 0;
+        player.shieldRaiseT = 0;
+        player.shieldCooldownUntil = now + 1200;
+        player.stunUntil = now + SHIELD_BREAK_STUN_MS;
+        player.parryStreak = 0;
+        player.hp = Math.max(0, player.hp - dmg);
+        player.hurtFlash = 1;
+        player.hitsTaken++;
+        if (enemy) enemy.hitsDealt++;
+        addFlash(player, '#ffaa30', 130);
+        addPopup(player, 'SHIELD BREAK', '#ffaa30');
+        shake = Math.max(shake, 22);
+        bgFlash = Math.max(bgFlash, 0.55);
+        playHit();
+        addParrySparks(player, attacker, true);
+        attacker.strikeResolved = true;
+        netSend({ type: 'shield_break' });
+        checkEnd();
+        return;
+      }
+      // Light → block
       player.parryStreak += 1;
       var isSuper = false;
       if (player.parryStreak >= PARRY_FOR_SUPER) { isSuper = true; player.parryStreak = 0; }
@@ -1416,22 +1824,26 @@
       if (isSuper) player.superCount++;
       applyParryAgainst(attacker, player, now, isSuper);
       attacker.strikeResolved = true;
+      tickChallenge('parries', 1);
+      if (isSuper) tickChallenge('supers', 1);
       netSend({ type: 'parry', isSuper: isSuper });
-    } else {
-      player.hp = Math.max(0, player.hp - HIT_DAMAGE);
-      player.hurtFlash = 1;
-      player.parryStreak = 0;
-      player.hitsTaken++;
-      if (enemy) enemy.hitsDealt++;
-      addFlash(player, '#ff5555', 80);
-      addPopup(player, 'HIT', '#ff7070');
-      shake = Math.max(shake, 12);
-      bgFlash = Math.max(bgFlash, 0.35);
-      playHit();
-      attacker.strikeResolved = true;
-      netSend({ type: 'hit' });
-      checkEnd();
+      return;
     }
+
+    // Open hit
+    player.hp = Math.max(0, player.hp - dmg);
+    player.hurtFlash = 1;
+    player.parryStreak = 0;
+    player.hitsTaken++;
+    if (enemy) enemy.hitsDealt++;
+    addFlash(player, attacker.isHeavyAttack ? '#ffaa30' : '#ff5555', attacker.isHeavyAttack ? 110 : 80);
+    addPopup(player, attacker.isHeavyAttack ? 'HEAVY HIT' : 'HIT', attacker.isHeavyAttack ? '#ffaa30' : '#ff7070');
+    shake = Math.max(shake, attacker.isHeavyAttack ? 18 : 12);
+    bgFlash = Math.max(bgFlash, attacker.isHeavyAttack ? 0.5 : 0.35);
+    playHit();
+    attacker.strikeResolved = true;
+    netSend({ type: 'hit' });
+    checkEnd();
   }
 
   function attemptParry(defender, attacker, now) {
@@ -1530,48 +1942,131 @@
     flashes.push({ x: pos.x, y: pos.y, color: '#ffffff', radius: isSuper ? 110 : 80, life: 220, max: 220 });
   }
 
-  // ---------- Input ----------
+  // ---------- Input (hold-modifier model) ----------
+  // Holding sword = heavy attack on release. Holding shield = dodge.
+  var holdState = {
+    swordDown: false, swordDownAt: 0,
+    shieldDown: false, shieldDownAt: 0, shieldDodgeFired: false,
+    swordKey: false, shieldKey: false   // dedupe key auto-repeat
+  };
+
+  function onSwordPress() {
+    if (gameState !== STATE_PLAYING) return;
+    if (holdState.swordDown) return;
+    holdState.swordDown = true;
+    holdState.swordDownAt = performance.now();
+    if (player) player.heavyChargeStart = holdState.swordDownAt;
+  }
+  function onSwordRelease() {
+    if (!holdState.swordDown) return;
+    var heldFor = performance.now() - holdState.swordDownAt;
+    holdState.swordDown = false;
+    if (player) player.heavyChargeStart = 0;
+    if (gameState !== STATE_PLAYING) return;
+    var heavy = heldFor >= HEAVY_HOLD_MS;
+    tryPlayerAttack(heavy);
+  }
+
+  function onShieldPress() {
+    if (gameState !== STATE_PLAYING) return;
+    if (holdState.shieldDown) return;
+    holdState.shieldDown = true;
+    holdState.shieldDownAt = performance.now();
+    holdState.shieldDodgeFired = false;
+  }
+  function onShieldRelease() {
+    if (!holdState.shieldDown) return;
+    var heldFor = performance.now() - holdState.shieldDownAt;
+    holdState.shieldDown = false;
+    if (gameState !== STATE_PLAYING) return;
+    if (!holdState.shieldDodgeFired && heldFor < DODGE_HOLD_MS) {
+      tryPlayerShield();
+    }
+  }
+
+  // Called each frame to fire dodge once shield held past threshold
+  function pollHoldTriggers(now) {
+    if (holdState.shieldDown && !holdState.shieldDodgeFired &&
+        (now - holdState.shieldDownAt) >= DODGE_HOLD_MS) {
+      holdState.shieldDodgeFired = true;
+      tryPlayerDodge();
+    }
+  }
+
+  function dispatchByButton(e, isPress) {
+    // Mouse/pen: button 0 = sword, button 2 = shield
+    // Touch: split screen by x — left half = shield, right half = sword
+    var isShield;
+    if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+      isShield = (e.button === 2);
+    } else {
+      isShield = (e.clientX < cssW / 2);
+    }
+    if (isShield) (isPress ? onShieldPress() : onShieldRelease());
+    else (isPress ? onSwordPress() : onSwordRelease());
+  }
+
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     ensureAudio();
     if (gameState !== STATE_PLAYING) return;
-    // Mouse: button 0 = left = sword; button 2 = right = shield
-    // Touch/pen: pointerType == 'touch' has no button — treat by screen-half
-    if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
-      if (e.button === 2) tryPlayerShield();
-      else tryPlayerAttack();
-    } else {
-      // Touch: split screen — left half = shield, right half = sword
-      if (e.clientX < cssW / 2) tryPlayerShield();
-      else tryPlayerAttack();
-    }
+    dispatchByButton(e, true);
   }, { passive: false });
+
+  canvas.addEventListener('pointerup', function (e) {
+    e.preventDefault();
+    if (gameState !== STATE_PLAYING) return;
+    dispatchByButton(e, false);
+  }, { passive: false });
+
+  canvas.addEventListener('pointercancel', function () {
+    onSwordRelease(); onShieldRelease();
+  });
 
   canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   window.addEventListener('keydown', function (e) {
     if (gameState !== STATE_PLAYING) return;
     if (e.code === 'KeyZ' || e.code === 'Space') {
+      if (holdState.swordKey) return;
+      holdState.swordKey = true;
       e.preventDefault();
-      tryPlayerAttack();
+      onSwordPress();
     } else if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      if (holdState.shieldKey) return;
+      holdState.shieldKey = true;
       e.preventDefault();
-      tryPlayerShield();
+      onShieldPress();
+    }
+  });
+  window.addEventListener('keyup', function (e) {
+    if (e.code === 'KeyZ' || e.code === 'Space') {
+      holdState.swordKey = false;
+      onSwordRelease();
+    } else if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      holdState.shieldKey = false;
+      onShieldRelease();
     }
   });
 
-  // On-screen action buttons (work on all platforms)
-  function bindActionBtn(id, fn) {
+  // On-screen action buttons
+  function bindActionBtn(id, onPress, onRelease) {
     var el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('pointerdown', function (e) {
       e.preventDefault(); e.stopPropagation();
       ensureAudio();
-      fn();
+      onPress();
     }, { passive: false });
+    el.addEventListener('pointerup', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      onRelease();
+    }, { passive: false });
+    el.addEventListener('pointerleave', function () { onRelease(); });
+    el.addEventListener('pointercancel', function () { onRelease(); });
   }
-  bindActionBtn('shieldBtn', tryPlayerShield);
-  bindActionBtn('swordBtn', tryPlayerAttack);
+  bindActionBtn('shieldBtn', onShieldPress, onShieldRelease);
+  bindActionBtn('swordBtn', onSwordPress, onSwordRelease);
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
@@ -1590,6 +2085,12 @@
         f.attackCooldownUntil += delta;
         f.shieldUpUntil += delta;
         f.shieldCooldownUntil += delta;
+        if (f.heavyChargeStart) f.heavyChargeStart += delta;
+        if (f.dodgeUntil) f.dodgeUntil += delta;
+        if (f.dodgeCooldownUntil) f.dodgeCooldownUntil += delta;
+        if (f.dodgeFlashAt) f.dodgeFlashAt += delta;
+        if (f.stunUntil) f.stunUntil += delta;
+        if (f.pwRageUntil) f.pwRageUntil += delta;
       });
       pendingAttackerFallbacks.forEach(function (p) { p.deadline += delta; });
       pausedAt = 0;
@@ -1610,27 +2111,50 @@
     [player, enemy].forEach(function (f) {
       if (!f) return;
       if (f.phase === 'idle') {
-        if (now >= f.nextAttackAt && f.hp > 0) startAttack(f, now);
+        if (now >= f.nextAttackAt && f.hp > 0 && now >= f.stunUntil) {
+          // AI enemy occasionally throws a heavy attack
+          var heavy = false;
+          if (f.side === 'enemy' && (gameMode === 'ai' || gameMode === 'tutorial')) {
+            heavy = Math.random() < 0.18;
+          }
+          startAttack(f, now, heavy);
+        }
       } else {
         transitionPhase(f, now);
       }
     });
 
-    // AI defensive shielding (AI mode only) — reactive to player attacks
-    if (gameMode === 'ai' && player && enemy && enemy.hp > 0) {
+    // Poll hold triggers (dodge if shield held past threshold)
+    pollHoldTriggers(now);
+
+    // AI defensive choices (AI mode only) — reactive to player attacks
+    if (gameMode === 'ai' && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
       if (player.phase === 'windup' || player.phase === 'strike') {
         if (!player.aiHasPlanned) {
           player.aiHasPlanned = true;
-          player.aiWillShieldThis = Math.random() < aiShieldChance(now);
+          var roll = Math.random();
+          var willDefend = roll < aiShieldChance(now);
+          // 25% of defensive choices become a dodge instead of shield (more if player attack is heavy — dodging heavies is the play)
+          var dodgeBias = player.isHeavyAttack ? 0.75 : 0.25;
+          var willDodge = willDefend && (Math.random() < dodgeBias);
+          player.aiWillShieldThis = willDefend && !willDodge;
+          player.aiWillDodgeThis = willDodge;
+          var strikeAt = (player.phase === 'windup' ? player.phaseStart + attackWindupMs(player) : player.phaseStart);
           if (player.aiWillShieldThis) {
-            var strikeAt = (player.phase === 'windup' ? player.phaseStart + WINDUP_MS : player.phaseStart);
-            var leadTime = 80 + Math.random() * 280; // raise 80-360ms before strike
+            var leadTime = 80 + Math.random() * 280;
             player.aiShieldAt = strikeAt - leadTime;
+          } else if (player.aiWillDodgeThis) {
+            var dleadTime = 60 + Math.random() * 160;
+            player.aiShieldAt = strikeAt - dleadTime; // reuse field for timing
           }
         }
-        if (player.aiWillShieldThis && now >= player.aiShieldAt && now < enemy.shieldCooldownUntil + 1) {
+        if (player.aiWillShieldThis && now >= player.aiShieldAt) {
           if (now >= enemy.shieldCooldownUntil) raiseShield(enemy, now);
           player.aiWillShieldThis = false;
+        }
+        if (player.aiWillDodgeThis && now >= player.aiShieldAt) {
+          if (now >= enemy.dodgeCooldownUntil) triggerDodge(enemy, now);
+          player.aiWillDodgeThis = false;
         }
       } else {
         player.aiHasPlanned = false;
@@ -1639,6 +2163,10 @@
 
     // Online attacker fallbacks
     if (gameMode === 'online') tickAttackerFallbacks(now);
+
+    // Hazard scheduling + resolution
+    tickHazards(now);
+    tickPowerup(now);
 
     // Tutorial controllers
     if (gameMode === 'tutorial') {
@@ -1700,25 +2228,275 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
   }
 
-  function drawBg() {
+  function drawBg(now) {
+    var a = currentArena;
     var g = ctx.createLinearGradient(0, 0, 0, cssH);
-    g.addColorStop(0, '#1a1230');
-    g.addColorStop(1, '#0a0a14');
+    g.addColorStop(0, a.bgTop);
+    g.addColorStop(1, a.bgBot);
     ctx.fillStyle = g;
     ctx.fillRect(-50, -50, cssW + 100, cssH + 100);
+
+    // Arena-specific atmosphere
+    if (a.id === 'pit') {
+      // ember particles drifting up
+      for (var i = 0; i < 6; i++) {
+        var y = (((now * 0.05) + i * 200) % cssH);
+        var x = (i * 173 + Math.sin(now * 0.001 + i) * 30) % cssW;
+        ctx.fillStyle = 'rgba(255,140,40,0.5)';
+        ctx.beginPath(); ctx.arc(x, cssH - y, 2 + (i % 3), 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (a.id === 'peak') {
+      // distant clouds + occasional flash
+      ctx.fillStyle = 'rgba(80,100,140,0.18)';
+      for (var i = 0; i < 4; i++) {
+        var cy = 60 + i * 50;
+        var cx = ((now * 0.02 + i * 200) % (cssW + 200)) - 100;
+        ctx.beginPath(); ctx.ellipse(cx, cy, 80, 20, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (Math.random() < 0.005) bgFlash = Math.max(bgFlash, 0.3);
+    } else if (a.id === 'void') {
+      // starfield
+      if (voidParticles.length === 0) {
+        for (var s = 0; s < 60; s++) voidParticles.push({ x: Math.random(), y: Math.random(), z: 0.3 + Math.random() * 0.7 });
+      }
+      ctx.fillStyle = '#fff';
+      voidParticles.forEach(function (p) {
+        var sz = 1 + p.z * 1.5;
+        var twinkle = 0.3 + 0.7 * Math.abs(Math.sin(now * 0.002 + p.x * 10));
+        ctx.globalAlpha = twinkle * p.z;
+        ctx.fillRect(p.x * cssW, p.y * cssH * 0.7, sz, sz);
+      });
+      ctx.globalAlpha = 1;
+    }
+
     if (bgFlash > 0) {
       ctx.fillStyle = 'rgba(255,255,255,' + (bgFlash * 0.25) + ')';
       ctx.fillRect(-50, -50, cssW + 100, cssH + 100);
     }
   }
 
-  function drawFloor() {
+  function drawFloor(now) {
+    var a = currentArena;
     var groundY = cssH * 0.70 + 50;
     var grad = ctx.createLinearGradient(0, groundY, 0, cssH);
-    grad.addColorStop(0, '#2a2244');
-    grad.addColorStop(1, '#0a0a14');
+    grad.addColorStop(0, a.floorTop);
+    grad.addColorStop(1, a.floorBot);
     ctx.fillStyle = grad;
     ctx.fillRect(-50, groundY, cssW + 100, cssH - groundY + 100);
+
+    // Lava cracks for pit
+    if (a.id === 'pit') {
+      ctx.strokeStyle = 'rgba(255,120,40,0.7)';
+      ctx.lineWidth = 2;
+      for (var i = 0; i < 4; i++) {
+        var bx = (i + 0.5) * (cssW / 4);
+        var pulse = 0.5 + 0.5 * Math.sin(now * 0.003 + i);
+        ctx.globalAlpha = 0.4 + 0.4 * pulse;
+        ctx.beginPath();
+        ctx.moveTo(bx - 30, groundY + 20 + i * 6);
+        ctx.lineTo(bx + 20, groundY + 30 + i * 6);
+        ctx.lineTo(bx + 40, groundY + 50 + i * 6);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function tickHazards(now) {
+    if (!currentArena || !currentArena.hazard) return;
+    if (gameMode === 'online' && !net.isHost) return; // client mirrors
+    if (now >= nextHazardAt) {
+      var pad = cssW * 0.12;
+      var x;
+      if (currentArena.hazard === 'lightning') {
+        // target one of the fighters' positions
+        var who = Math.random() < 0.5 ? player : enemy;
+        x = who ? getFighterPos(who).x : cssW / 2;
+      } else {
+        x = pad + Math.random() * (cssW - 2 * pad);
+      }
+      var h = {
+        type: currentArena.hazard,
+        x: x,
+        telegraphAt: now,
+        impactAt: now + currentArena.hazardTelegraph,
+        damage: currentArena.hazardDamage,
+        resolved: false
+      };
+      hazards.push(h);
+      nextHazardAt = now + currentArena.hazardEvery;
+      if (gameMode === 'online' && net.isHost) {
+        netSend({ type: 'hazard', x: x, atOffset: 0 });
+      }
+    }
+    // Resolve impacts
+    for (var i = hazards.length - 1; i >= 0; i--) {
+      var hz = hazards[i];
+      if (!hz.resolved && now >= hz.impactAt) {
+        hz.resolved = true;
+        // damage check — fighter near hazard.x
+        [player, enemy].forEach(function (f) {
+          if (!f || f.hp <= 0) return;
+          var fx = getFighterPos(f).x;
+          if (Math.abs(fx - hz.x) < 60) {
+            f.hp = Math.max(0, f.hp - hz.damage);
+            f.hurtFlash = 1;
+            addPopup(f, 'OUCH', '#ffaa30');
+            shake = Math.max(shake, 10);
+            playHit();
+            checkEnd();
+          }
+        });
+      }
+      // remove old
+      if (now > hz.impactAt + 600) hazards.splice(i, 1);
+    }
+  }
+
+  function tickPowerup(now) {
+    if (gameMode === 'online' && !net.isHost) return;
+    if (!powerup && now >= nextPowerupAt) {
+      var types = ['heal', 'charge', 'rage'];
+      powerup = {
+        type: types[Math.floor(Math.random() * types.length)],
+        x: cssW * 0.5,
+        spawnAt: now,
+        grabbedBy: null
+      };
+      if (gameMode === 'online' && net.isHost) {
+        netSend({ type: 'powerup_spawn', powType: powerup.type });
+      }
+    }
+    if (powerup && !powerup.grabbedBy) {
+      // Auto-grab: whichever fighter is in mid-strike near center first
+      var mid = cssW * 0.5;
+      [player, enemy].forEach(function (f) {
+        if (powerup.grabbedBy || !f || f.hp <= 0) return;
+        if (f.phase === 'strike') {
+          var fx = getFighterPos(f).x;
+          // Sword reaches ~120px in strike direction; center is between fighters
+          if (Math.abs(fx - mid) < 200) {
+            grantPowerup(f);
+          }
+        }
+      });
+      // Auto-grant after 8s to whoever's closer
+      if (!powerup.grabbedBy && now - powerup.spawnAt > 8000) {
+        var dp = Math.abs(getFighterPos(player).x - mid);
+        var de = Math.abs(getFighterPos(enemy).x - mid);
+        grantPowerup(dp <= de ? player : enemy);
+      }
+    }
+    // Schedule next powerup after grab
+    if (powerup && powerup.grabbedBy && now - powerup.spawnAt > 9000) {
+      powerup = null;
+      nextPowerupAt = now + 22000 + Math.random() * 8000;
+    }
+  }
+
+  function grantPowerup(f) {
+    if (!powerup || powerup.grabbedBy) return;
+    powerup.grabbedBy = f.side;
+    var t = powerup.type;
+    if (t === 'heal') {
+      f.hp = Math.min(MAX_HP, f.hp + 25);
+      f.pwHealedAt = performance.now();
+      addPopup(f, '+25 HP', '#62e878');
+    } else if (t === 'charge') {
+      f.pwChargeReady = true;
+      addPopup(f, 'CHARGED', '#ffaa30');
+    } else if (t === 'rage') {
+      f.pwRageUntil = performance.now() + 10000;
+      addPopup(f, 'RAGE', '#ff6090');
+    }
+    if (gameMode === 'online' && net.isHost) {
+      netSend({ type: 'powerup_grab', side: f.side });
+    }
+  }
+
+  function drawHazards(now) {
+    for (var i = 0; i < hazards.length; i++) {
+      var h = hazards[i];
+      var groundY = cssH * 0.70;
+      if (h.type === 'flame') {
+        if (now < h.impactAt) {
+          // telegraph: glowing circle on ground
+          var prog = 1 - (h.impactAt - now) / (h.impactAt - h.telegraphAt);
+          ctx.fillStyle = 'rgba(255,120,30,' + (0.3 + 0.5 * prog) + ')';
+          ctx.beginPath();
+          ctx.ellipse(h.x, groundY + 35, 38 + 8 * prog, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (now < h.impactAt + 380) {
+          // flame jet
+          var t = (now - h.impactAt) / 380;
+          var height = 220 * Math.sin(Math.min(1, t * 1.5) * Math.PI);
+          var grad = ctx.createLinearGradient(h.x, groundY + 40, h.x, groundY + 40 - height);
+          grad.addColorStop(0, 'rgba(255,200,80,0.9)');
+          grad.addColorStop(0.5, 'rgba(255,120,30,0.7)');
+          grad.addColorStop(1, 'rgba(255,80,20,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(h.x - 30, groundY + 40);
+          ctx.lineTo(h.x - 18, groundY + 40 - height);
+          ctx.lineTo(h.x + 18, groundY + 40 - height);
+          ctx.lineTo(h.x + 30, groundY + 40);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (h.type === 'lightning') {
+        if (now < h.impactAt) {
+          var prog2 = 1 - (h.impactAt - now) / (h.impactAt - h.telegraphAt);
+          // crosshair on ground at target
+          ctx.strokeStyle = 'rgba(180,200,255,' + (0.4 + 0.5 * prog2) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(h.x, groundY + 35, 30 + 8 * prog2, 8, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (now < h.impactAt + 250) {
+          // lightning bolt
+          ctx.strokeStyle = 'rgba(220,235,255,1)';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          var y = -20;
+          ctx.moveTo(h.x, y);
+          while (y < groundY + 30) {
+            y += 24;
+            ctx.lineTo(h.x + (Math.random() - 0.5) * 24, y);
+          }
+          ctx.stroke();
+          // glow
+          ctx.strokeStyle = 'rgba(180,200,255,0.5)';
+          ctx.lineWidth = 12;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function drawPowerup(now) {
+    if (!powerup || powerup.grabbedBy) return;
+    var groundY = cssH * 0.70;
+    var bobY = groundY - 60 + Math.sin(now * 0.005) * 6;
+    // glow
+    var grad = ctx.createRadialGradient(powerup.x, bobY, 6, powerup.x, bobY, 40);
+    var color = powerup.type === 'heal' ? '76,232,120' : powerup.type === 'charge' ? '255,160,40' : '255,80,160';
+    grad.addColorStop(0, 'rgba(' + color + ',0.7)');
+    grad.addColorStop(1, 'rgba(' + color + ',0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(powerup.x, bobY, 40, 0, Math.PI * 2); ctx.fill();
+    // crystal
+    ctx.fillStyle = 'rgba(' + color + ',0.95)';
+    ctx.beginPath();
+    ctx.moveTo(powerup.x, bobY - 14);
+    ctx.lineTo(powerup.x + 10, bobY);
+    ctx.lineTo(powerup.x, bobY + 14);
+    ctx.lineTo(powerup.x - 10, bobY);
+    ctx.closePath(); ctx.fill();
+    // icon letter
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(powerup.type === 'heal' ? '+' : powerup.type === 'charge' ? '⚔' : '★', powerup.x, bobY);
   }
 
   function drawPlume(c, s, now) {
@@ -1940,13 +2718,16 @@
     ctx.ellipse(p.x, p.y + 50, 60, 12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // windup glow — player team color for own attacks, red threat for enemy
+    // windup glow — heavy = orange/gold, light = team color for player / red for enemy
     if (f.phase === 'windup') {
-      var t = (now - f.phaseStart) / WINDUP_MS;
+      var t = (now - f.phaseStart) / attackWindupMs(f);
       if (t < 0) t = 0; if (t > 1) t = 1;
       var alpha = 0.15 + 0.55 * t;
-      var r = 70 + 50 * t;
-      var glowRGB = f.side === 'enemy' ? '255,70,70' : '120,180,255';
+      var r = 70 + (f.isHeavyAttack ? 80 : 50) * t;
+      var glowRGB;
+      if (f.isHeavyAttack) glowRGB = '255,160,40';
+      else if (f.side === 'enemy') glowRGB = '255,70,70';
+      else glowRGB = '120,180,255';
       var grd = ctx.createRadialGradient(p.x, p.y - 30, 10, p.x, p.y - 30, r);
       grd.addColorStop(0, 'rgba(' + glowRGB + ',' + alpha + ')');
       grd.addColorStop(1, 'rgba(' + glowRGB + ',0)');
@@ -1955,7 +2736,10 @@
       ctx.arc(p.x, p.y - 30, r, 0, Math.PI * 2);
       ctx.fill();
     } else if (f.phase === 'strike') {
-      var strikeRGB = f.side === 'enemy' ? '255,200,80' : '180,230,255';
+      var strikeRGB;
+      if (f.isHeavyAttack) strikeRGB = '255,200,80';
+      else if (f.side === 'enemy') strikeRGB = '255,200,80';
+      else strikeRGB = '180,230,255';
       var grd2 = ctx.createRadialGradient(p.x, p.y - 30, 10, p.x, p.y - 30, 150);
       grd2.addColorStop(0, 'rgba(' + strikeRGB + ',0.7)');
       grd2.addColorStop(1, 'rgba(' + strikeRGB + ',0)');
@@ -1972,6 +2756,44 @@
     if (f.recoilT > 0) {
       var rk = f.recoilT;
       ctx.translate(-facing * 8 * rk, -3 * rk);
+    }
+
+    // Dodge sidestep — slide back briefly during i-frame
+    var inDodge = f.dodgeUntil > now;
+    if (inDodge) {
+      var dt2 = (f.dodgeUntil - now) / DODGE_MS;
+      if (dt2 > 1) dt2 = 1;
+      ctx.translate(-facing * 14 * dt2, -2 * dt2);
+      // Semi-transparent flicker
+      var fl = (Math.sin(now * 0.04) + 1) * 0.5;
+      ctx.globalAlpha = 0.35 + 0.45 * fl;
+    }
+
+    // Stun shake (after shield break)
+    if (f.stunUntil > now) {
+      ctx.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2);
+    }
+
+    // Charge glow buildup (player heavy hold)
+    if (f.heavyChargeStart && f.heavyChargeStart > 0 && f.phase === 'idle') {
+      var charge = Math.min(1, (now - f.heavyChargeStart) / HEAVY_HOLD_MS);
+      var rad = 50 + 40 * charge;
+      var alpha = 0.25 + 0.55 * charge;
+      var grad = ctx.createRadialGradient(0, -50, 8, 0, -50, rad);
+      grad.addColorStop(0, 'rgba(255,180,40,' + alpha + ')');
+      grad.addColorStop(1, 'rgba(255,120,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, -50, rad, 0, Math.PI * 2);
+      ctx.fill();
+      // outer ring once fully charged
+      if (charge >= 1) {
+        ctx.strokeStyle = 'rgba(255,200,80,0.75)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -50, rad - 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     // ---- Cape (drawn first, behind body) ----
@@ -2106,18 +2928,20 @@
 
     // ---- Main arm with sword ----
     var armAngle = 0;
+    var maxPullback = f.isHeavyAttack ? -1.7 : -1.2;
+    var maxFollowthrough = f.isHeavyAttack ? 2.0 : 1.4;
     if (f.phase === 'windup') {
-      var tw = (now - f.phaseStart) / WINDUP_MS;
+      var tw = (now - f.phaseStart) / attackWindupMs(f);
       if (tw > 1) tw = 1;
-      armAngle = -1.2 * tw;
+      armAngle = maxPullback * tw;
     } else if (f.phase === 'strike') {
-      var ts = (now - f.phaseStart) / STRIKE_MS;
+      var ts = (now - f.phaseStart) / attackStrikeMs(f);
       if (ts > 1) ts = 1;
-      armAngle = -1.2 + 2.6 * ts;
+      armAngle = maxPullback + (maxFollowthrough - maxPullback) * ts;
     } else if (f.phase === 'recovery') {
-      var tr = (now - f.phaseStart) / RECOVERY_MS;
+      var tr = (now - f.phaseStart) / attackRecoveryMs(f);
       if (tr > 1) tr = 1;
-      armAngle = 1.4 * (1 - tr);
+      armAngle = maxFollowthrough * (1 - tr);
     }
     if (f.recoilT > 0) {
       // sword pushed back
@@ -2128,17 +2952,19 @@
     ctx.scale(facing, 1);
     // Sword swoosh trail during strike (drawn in arm-anchor frame, before the arm)
     if (f.phase === 'strike') {
-      var ts = (now - f.phaseStart) / STRIKE_MS;
+      var ts = (now - f.phaseStart) / attackStrikeMs(f);
       if (ts > 1) ts = 1;
-      var startA = -1.2;
-      var curA = -1.2 + 2.6 * ts;
-      ctx.strokeStyle = 'rgba(255,255,220,0.30)';
-      ctx.lineWidth = 14;
+      var pullback = f.isHeavyAttack ? -1.7 : -1.2;
+      var followthrough = f.isHeavyAttack ? 2.0 : 1.4;
+      var startA = pullback;
+      var curA = pullback + (followthrough - pullback) * ts;
+      ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,180,60,0.40)' : 'rgba(255,255,220,0.30)';
+      ctx.lineWidth = f.isHeavyAttack ? 18 : 14;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.arc(0, 0, 96, startA, curA);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.strokeStyle = f.isHeavyAttack ? 'rgba(255,220,120,0.85)' : 'rgba(255,255,255,0.65)';
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.arc(0, 0, 100, startA, curA);
@@ -2274,9 +3100,11 @@
   function render(now) {
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-    drawBg();
-    drawFloor();
+    drawBg(now);
+    drawFloor(now);
     if (gameState === STATE_PLAYING || gameState === STATE_GAMEOVER) {
+      drawHazards(now);
+      drawPowerup(now);
       drawFighter(enemy, now);
       drawFighter(player, now);
       drawSparks();
@@ -2381,30 +3209,44 @@
   // ---------- Tutorial ----------
   var TUTORIAL_STEPS = [
     {
-      label: 'STEP 1 OF 4',
+      label: 'STEP 1 OF 6',
       text: 'WATCH THE RED GLOW',
       hint: 'Your rival lights up red just before they strike. Watch one swing.',
       requiredParries: 0,
       maxAttacks: 1
     },
     {
-      label: 'STEP 2 OF 4',
+      label: 'STEP 2 OF 6',
       text: 'TAP SHIELD JUST BEFORE THEY STRIKE',
       hint: 'Press 🛡 SHIELD (left side / right-click / X). Time it for the strike.',
       requiredParries: 1,
       maxAttacks: 5
     },
     {
-      label: 'STEP 3 OF 4',
+      label: 'STEP 3 OF 6',
       text: 'BLOCK THREE IN A ROW',
       hint: 'Three blocks in a row unleashes a SUPER. Stay focused.',
       requiredParries: 3,
       maxAttacks: 8
     },
     {
-      label: 'STEP 4 OF 4',
-      text: 'NOW ATTACK BACK',
-      hint: 'Press ⚔ SWORD (right side / left-click / Z) to swing at your rival.',
+      label: 'STEP 4 OF 6',
+      text: 'HOLD SHIELD TO DODGE',
+      hint: 'HOLD 🛡 SHIELD for ½ second to sidestep with brief invulnerability. Try one.',
+      requiredDodges: 1,
+      maxAttacks: 4
+    },
+    {
+      label: 'STEP 5 OF 6',
+      text: 'HOLD SWORD FOR HEAVY ATTACK',
+      hint: 'HOLD ⚔ SWORD ≥350ms then RELEASE. Heavy attacks BREAK shields but are slow.',
+      requiredHeavies: 1,
+      maxAttacks: 999  // wait until heavy thrown
+    },
+    {
+      label: 'STEP 6 OF 6',
+      text: "YOU'RE READY",
+      hint: "Mind games: light vs shield, heavy vs shield (BREAK), dodge vs anything. Go duel.",
       requiredParries: 0,
       maxAttacks: 0,
       complete: true
@@ -2413,6 +3255,8 @@
   var tutorialStep = 0;
   var tutorialAttackCount = 0;
   var tutorialParriesAtStep = 0;
+  var tutorialDodgesAtStep = 0;
+  var tutorialHeaviesAtStep = 0;
   var tutorialFinishTapAt = 0;
 
   function startTutorial() {
@@ -2435,6 +3279,8 @@
     document.getElementById('tutStepHint').textContent = step.hint;
     tutorialAttackCount = 0;
     tutorialParriesAtStep = (player ? player.parryCount : 0);
+    tutorialDodgesAtStep = (player ? (player.dodgesUsed || 0) : 0);
+    tutorialHeaviesAtStep = (player ? (player.heaviesThrown || 0) : 0);
     if (step.complete) {
       tutorialFinishTapAt = performance.now();
     }
@@ -2445,14 +3291,20 @@
     var step = TUTORIAL_STEPS[tutorialStep];
     if (!step) return;
     if (step.complete) {
-      // Wait a moment then accept any tap to exit (handled in handleTap)
+      if (now - tutorialFinishTapAt > 3500) finishTutorial();
       return;
     }
     var earnedParries = (player.parryCount - tutorialParriesAtStep);
+    var earnedDodges = (player.dodgesUsed - tutorialDodgesAtStep);
+    var earnedHeavies = (player.heaviesThrown - tutorialHeaviesAtStep);
     var advance = false;
-    if (step.requiredParries > 0 && earnedParries >= step.requiredParries) advance = true;
-    else if (step.requiredParries === 0 && tutorialAttackCount >= step.maxAttacks && enemy.phase === 'idle') advance = true;
-    else if (step.maxAttacks > 0 && tutorialAttackCount >= step.maxAttacks && enemy.phase === 'idle') advance = true;
+    if (step.requiredParries && earnedParries >= step.requiredParries) advance = true;
+    else if (step.requiredDodges && earnedDodges >= step.requiredDodges) advance = true;
+    else if (step.requiredHeavies && earnedHeavies >= step.requiredHeavies) advance = true;
+    else if (!step.requiredParries && !step.requiredDodges && !step.requiredHeavies &&
+             step.maxAttacks > 0 && tutorialAttackCount >= step.maxAttacks && enemy.phase === 'idle') {
+      advance = true;
+    }
     if (advance) {
       tutorialStep++;
       if (tutorialStep >= TUTORIAL_STEPS.length) {
@@ -2512,7 +3364,21 @@
     }
     flashes.length = 0; popups.length = 0; sparks.length = 0;
     pendingAttackerFallbacks.length = 0;
+    hazards.length = 0; powerup = null;
     shake = 0; bgFlash = 0; pausedAt = 0;
+    holdState.swordDown = false; holdState.shieldDown = false;
+    holdState.shieldDodgeFired = false; holdState.swordKey = false; holdState.shieldKey = false;
+    // Arena setup — random by default unless explicitly chosen
+    if (mode === 'tutorial') currentArena = ARENAS[0];
+    else if (mode !== 'online') currentArena = pendingArenaChoice || ARENAS[Math.floor(Math.random() * ARENAS.length)];
+    // online host picks; client receives via hello
+    if (mode === 'online') {
+      currentArena = net.isHost ? (pendingArenaChoice || ARENAS[Math.floor(Math.random() * ARENAS.length)]) : (net.opponentArena ? getArena(net.opponentArena) : ARENAS[0]);
+    }
+    pendingArenaChoice = null;
+    nextHazardAt = currentArena.hazard ? now + currentArena.hazardEvery : 0;
+    nextPowerupAt = now + 18000;
+
     gameState = STATE_PLAYING;
     hideAllScreens();
 
@@ -2520,10 +3386,12 @@
       net.onMessage = onNetMessage;
       enemy.username = net.opponentName || 'RIVAL';
       if (net.opponentSkin) enemy.skin = getSkin(net.opponentSkin);
+      // Host also broadcasts arena choice
+      if (net.isHost) netSend({ type: 'arena', id: currentArena.id });
     }
-    // Show action buttons during play
     document.getElementById('actionBtns').classList.remove('hidden');
   }
+  var pendingArenaChoice = null;
 
   var endReason = '';
   function endMatch(playerWon, reason) {
@@ -2592,6 +3460,16 @@
       commitMatchStats();
       if (playerWon) profile.stats.wins += 1;
       awarded = awardMatchOutcome(playerWon, gameMode);
+      // Daily challenge tracking
+      tickChallenge('matches', 1);
+      if (playerWon) {
+        tickChallenge('wins', 1);
+        if (gameMode === 'online') tickChallenge('onlineWins', 1);
+        if (player && player.hitsTaken === 0) tickChallenge('noHitWin', 1);
+        if (player && player.skin && player.skin.unlockType === 'coin') tickChallenge('paidSkinWin', 1);
+      }
+      tickChallenge('maxStreak', player ? Math.max(player.parryCount, player.parryStreak) : 0, true);
+      if (awarded && awarded.coinDelta > 0) tickChallenge('coinsEarned', awarded.coinDelta);
       saveProfile();
     }
 
@@ -2671,6 +3549,27 @@
     hideGameUi();
     showScreen('mode');
     updateModeRankWidget();
+    renderArenaPicker();
+    refreshDailiesIfNeeded();
+  }
+
+  function renderArenaPicker() {
+    var row = document.getElementById('arenaRow');
+    if (!row) return;
+    row.innerHTML = '';
+    // Random card
+    var rand = document.createElement('div');
+    rand.className = 'arena-card random' + (pendingArenaChoice == null ? ' selected' : '');
+    rand.innerHTML = '<div class="arena-name">RANDOM</div>';
+    rand.addEventListener('click', function () { pendingArenaChoice = null; renderArenaPicker(); });
+    row.appendChild(rand);
+    ARENAS.forEach(function (a) {
+      var c = document.createElement('div');
+      c.className = 'arena-card ' + a.id + (pendingArenaChoice && pendingArenaChoice.id === a.id ? ' selected' : '');
+      c.innerHTML = '<div class="arena-name">' + a.name + '</div>';
+      c.addEventListener('click', function () { pendingArenaChoice = a; renderArenaPicker(); });
+      row.appendChild(c);
+    });
   }
 
   function openSkins() {
@@ -2896,6 +3795,9 @@
         break;
       case 'open-skins':
         openSkins();
+        break;
+      case 'open-dailies':
+        openDailies();
         break;
       case 'back-mode':
         goToMode();
