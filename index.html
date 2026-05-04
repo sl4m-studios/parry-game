@@ -1334,6 +1334,7 @@
     return {
       side: side,
       hp: MAX_HP,
+      maxHp: MAX_HP,
       phase: 'idle',
       phaseStart: 0,
       nextAttackAt: 0,
@@ -2531,14 +2532,17 @@
     [player, enemy].forEach(function (f) {
       if (!f) return;
       if (f.phase === 'idle') {
-        if (now >= f.nextAttackAt && f.hp > 0 && now >= f.stunUntil) {
-          // AI picks a charge ratio: mostly light taps, occasional heavy charges
+        // In campaign mode, the boss brain handles its own attack initiation;
+        // skip the generic auto-fire to avoid overriding the boss's intended charge.
+        if (gameMode === 'campaign' && f.side === 'enemy') {
+          // no-op — bossBrain will handle
+        } else if (now >= f.nextAttackAt && f.hp > 0 && now >= f.stunUntil) {
           var ratio = 0;
           if (f.side === 'enemy' && (gameMode === 'ai' || gameMode === 'tutorial')) {
             var roll = Math.random();
-            if (roll < 0.55) ratio = Math.random() * 0.3;            // quick tap
-            else if (roll < 0.85) ratio = 0.3 + Math.random() * 0.3;  // medium
-            else ratio = 0.5 + Math.random() * 0.5;                   // heavy charge
+            if (roll < 0.55) ratio = Math.random() * 0.3;
+            else if (roll < 0.85) ratio = 0.3 + Math.random() * 0.3;
+            else ratio = 0.5 + Math.random() * 0.5;
           }
           startAttack(f, now, ratio);
         }
@@ -3511,8 +3515,8 @@
       var barW = Math.min(cssW * 0.4, 320);
       var youLabel = (gameMode === 'online') ? (profile.username || 'YOU') : 'YOU';
       var rivalLabel = (gameMode === 'online') ? (enemy.username || net.opponentName || 'RIVAL') : 'AI';
-      drawHpBar(20, 20, barW, 22, player.hp / MAX_HP, '#4dd6ff', youLabel, false);
-      drawHpBar(cssW - 20 - barW, 20, barW, 22, enemy.hp / MAX_HP, '#ff5d7e', rivalLabel, true);
+      drawHpBar(20, 20, barW, 22, player.hp / (player.maxHp || MAX_HP), '#4dd6ff', youLabel, false);
+      drawHpBar(cssW - 20 - barW, 20, barW, 22, enemy.hp / (enemy.maxHp || MAX_HP), '#ff5d7e', rivalLabel, true);
       drawStreakDots(20, 50, player.parryStreak, '#fff', false);
       drawStreakDots(cssW - 20 - 90, 50, enemy.parryStreak, '#fff', true);
     } else {
@@ -3828,6 +3832,7 @@
     // Boss campaign: override enemy HP and use boss skin
     if (mode === 'campaign' && currentBoss) {
       enemy.hp = currentBoss.hp;
+      enemy.maxHp = currentBoss.hp;
       enemy.username = currentBoss.name;
       enemy.skin = getSkin(currentBoss.skinId);
     }
