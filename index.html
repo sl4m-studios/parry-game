@@ -28,12 +28,31 @@
   }
   .screen.hidden { display: none; }
   h1.title {
-    font-size: clamp(56px, 14vw, 140px);
+    font-size: clamp(80px, 18vw, 180px);
     font-weight: 900; letter-spacing: 0.02em;
-    color: #ffd34d;
-    text-shadow: 0 4px 0 #c08c00, 0 8px 24px rgba(255,200,77,0.4);
     line-height: 1; margin-bottom: 8px;
+    position: relative;
+    background: linear-gradient(120deg, #ffd34d 0%, #ff9c20 50%, #ffd34d 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 0 #c08c00) drop-shadow(0 8px 24px rgba(255,200,77,0.4));
   }
+  h1.title::after {
+    content: 'PARRY!';
+    position: absolute; top: 0; left: 0; right: 0;
+    text-align: center;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.85) 50%, transparent 70%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+    background-size: 200% 100%;
+    animation: title-shimmer 3.2s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes title-shimmer {
+    0% { background-position: -100% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .btn .ico { margin-right: 8px; font-size: 1.05em; vertical-align: -1px; }
   h2.subtitle {
     font-size: clamp(28px, 7vw, 56px);
     font-weight: 900; color: #fff;
@@ -151,6 +170,13 @@
     padding-top: 32px;
     padding-bottom: 32px;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---------- Live character preview ---------- */
+  .mode-char-canvas {
+    width: 180px; height: 220px;
+    margin: -8px 0 -10px;
+    image-rendering: pixelated;
   }
 
   /* ---------- Type stats info ---------- */
@@ -551,6 +577,7 @@
   <button class="top-left-btn" data-action="open-tutorial"><span class="icon">?</span>TUTORIAL</button>
   <button class="top-right-btn" data-action="open-settings"><span class="icon">⚙</span>SETTINGS</button>
   <div id="modeRankWidget" class="rank-card">
+    <canvas id="modeCharCanvas" class="mode-char-canvas" width="180" height="220"></canvas>
     <div class="badge" id="modeBadge"><div class="gem"></div><div class="stars" id="modeBadgeStars"></div></div>
     <div class="rank-name" id="modeRankName">UNRANKED</div>
     <div class="username-row">
@@ -565,14 +592,14 @@
   </div>
   <div class="arena-row" id="arenaRow"></div>
   <div class="btn-row">
-    <button class="btn" data-action="mode-ai">VS AI</button>
-    <button class="btn secondary" data-action="mode-online">VS PLAYER</button>
-    <button class="btn secondary" data-action="open-friend">PLAY FRIEND</button>
-    <button class="btn secondary" data-action="open-campaign">CAMPAIGN</button>
-    <button class="btn secondary" data-action="mode-survival">SURVIVAL</button>
-    <button class="btn secondary" data-action="mode-local">LOCAL 2P</button>
-    <button class="btn secondary" data-action="open-skins">SKINS</button>
-    <button class="btn secondary" data-action="open-dailies">DAILIES</button>
+    <button class="btn" data-action="mode-ai"><span class="ico">⚔</span>VS AI</button>
+    <button class="btn secondary" data-action="mode-online"><span class="ico">👥</span>VS PLAYER</button>
+    <button class="btn secondary" data-action="open-friend"><span class="ico">🤝</span>PLAY FRIEND</button>
+    <button class="btn secondary" data-action="open-campaign"><span class="ico">🏰</span>CAMPAIGN</button>
+    <button class="btn secondary" data-action="mode-survival"><span class="ico">💀</span>SURVIVAL</button>
+    <button class="btn secondary" data-action="mode-local"><span class="ico">🎮</span>LOCAL 2P</button>
+    <button class="btn secondary" data-action="open-skins"><span class="ico">🎨</span>SKINS</button>
+    <button class="btn secondary" data-action="open-dailies"><span class="ico">📅</span>DAILIES</button>
   </div>
   <button class="btn ghost" data-action="back-boot">← BACK</button>
 </div>
@@ -5319,6 +5346,9 @@
       drawSparks();
       drawFlashes();
       drawPopups();
+    } else {
+      // Menu screens: ambient duel in background
+      drawMenuDuel(now);
     }
     if (gameState === STATE_PLAYING) drawHud(now);
     ctx.restore();
@@ -5640,6 +5670,8 @@
       if (s.getAttribute('data-screen') === name) s.classList.remove('hidden');
       else s.classList.add('hidden');
     });
+    // Stop mode char preview loop unless we're showing the mode screen
+    if (name !== 'mode') stopModeCharLoop();
   }
   function hideAllScreens() {
     var screens = document.querySelectorAll('.screen');
@@ -5898,6 +5930,88 @@
   function hideGameUi() {
     document.getElementById('actionBtns').classList.add('hidden');
   }
+
+  // ---------- Background ambient duel (menu screens) ----------
+  var menuFighters = null;
+  function initMenuFighters() {
+    var skinPool = ['knight', 'reaver', 'wiz_apprentice', 'rgr_scout', 'sam_ronin', 'nec_apprentice', 'wiz_pyro', 'sam_crimson'];
+    var pickA = skinPool[Math.floor(Math.random() * skinPool.length)];
+    var pickB;
+    do { pickB = skinPool[Math.floor(Math.random() * skinPool.length)]; } while (pickB === pickA);
+    var p1 = makeFighter('player');
+    var p2 = makeFighter('enemy');
+    p1.skin = getSkin(pickA); p2.skin = getSkin(pickB);
+    p1.silentMode = true; p2.silentMode = true;
+    p1.nextAttackAt = performance.now() + 1200;
+    p2.nextAttackAt = performance.now() + 2400;
+    menuFighters = { p1: p1, p2: p2 };
+  }
+
+  function tickMenuDuel(now) {
+    if (!menuFighters) initMenuFighters();
+    var fs = [menuFighters.p1, menuFighters.p2];
+    fs.forEach(function (f) {
+      if (f.phase === 'idle') {
+        if (now >= f.nextAttackAt) {
+          f.phase = 'windup'; f.phaseStart = now;
+          f.chargeRatio = 0.2 + Math.random() * 0.5;
+          f.isHeavyAttack = f.chargeRatio >= HEAVY_CHARGE_THRESHOLD;
+        }
+      } else if (f.phase === 'windup') {
+        if (now - f.phaseStart >= attackWindupMs(f)) { f.phase = 'strike'; f.phaseStart = now; }
+      } else if (f.phase === 'strike') {
+        if (now - f.phaseStart >= attackStrikeMs(f)) {
+          // Defender randomly raises shield (visual only, no damage)
+          var defender = (f === menuFighters.p1) ? menuFighters.p2 : menuFighters.p1;
+          if (Math.random() < 0.55) {
+            defender.shieldRaiseT = 1; defender.shieldRaiseAt = now;
+            defender.shieldUpUntil = now + SHIELD_UP_MS;
+          }
+          f.phase = 'recovery'; f.phaseStart = now;
+        }
+      } else if (f.phase === 'recovery') {
+        if (now - f.phaseStart >= attackRecoveryMs(f)) {
+          f.phase = 'idle'; f.phaseStart = now;
+          f.nextAttackAt = now + 2200 + Math.random() * 1800;
+          f.isHeavyAttack = false;
+        }
+      }
+      // shield decay
+      if (f.shieldRaiseT > 0) {
+        var srE = now - f.shieldRaiseAt;
+        f.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_UP_MS);
+      }
+    });
+  }
+
+  function drawMenuDuel(now) {
+    tickMenuDuel(now);
+    if (!menuFighters) return;
+    ctx.save();
+    ctx.globalAlpha = 0.32;
+    drawFighter(menuFighters.p2, now);
+    drawFighter(menuFighters.p1, now);
+    ctx.restore();
+  }
+
+  // ---------- Mode menu live character preview ----------
+  var modeCharLoopId = 0;
+  function startModeCharLoop() {
+    stopModeCharLoop();
+    var cv = document.getElementById('modeCharCanvas');
+    if (!cv) return;
+    function tick() {
+      if (!modeCharLoopId) return;
+      drawSkinPreview(cv, getSkin(profile.skin));
+      modeCharLoopId = requestAnimationFrame(tick);
+    }
+    modeCharLoopId = 1; // sentinel so first tick doesn't bail
+    modeCharLoopId = requestAnimationFrame(tick);
+  }
+  function stopModeCharLoop() {
+    if (modeCharLoopId) cancelAnimationFrame(modeCharLoopId);
+    modeCharLoopId = 0;
+  }
   function goToBoot() {
     netCleanup();
     gameState = STATE_BOOT;
@@ -5911,6 +6025,7 @@
     updateModeRankWidget();
     renderArenaPicker();
     refreshDailiesIfNeeded();
+    startModeCharLoop();
   }
 
   function renderArenaPicker() {
@@ -6161,6 +6276,7 @@
   function drawSkinPreview(cv, skin) {
     var c = cv.getContext('2d');
     var w = cv.width, h = cv.height;
+    var now = performance.now();
     c.clearRect(0, 0, w, h);
     // background
     var bg = c.createLinearGradient(0, 0, 0, h);
@@ -6171,11 +6287,12 @@
     // floor line
     c.fillStyle = 'rgba(0,0,0,0.4)';
     c.beginPath(); c.ellipse(w/2, h*0.86, 30, 5, 0, 0, Math.PI*2); c.fill();
-    // mini character centered
+    // mini character centered (with breathing)
     c.save();
     c.translate(w/2, h*0.88);
+    var breathe = 1 + Math.sin(now * 0.003) * 0.025;
     var sc = 0.55;
-    c.scale(sc, sc);
+    c.scale(sc, sc * breathe);
     // cape
     c.fillStyle = skin.capeColor;
     c.beginPath();
