@@ -3537,13 +3537,22 @@
     }
     // Player 2 controls (local 2P mode)
     if (gameMode === 'local') {
-      if (e.code === 'KeyK') {
+      // K = charge attack (hold for heavy, release to fire)
+      if (e.code === 'KeyK' || e.code === 'ArrowUp') {
         if (p2Hold.swordKey) return;
         p2Hold.swordKey = true; e.preventDefault(); onP2SwordPress();
-      } else if (e.code === 'KeyL') {
+      // J = instant LIGHT attack (no charge needed)
+      } else if (e.code === 'KeyJ') {
+        e.preventDefault(); tryP2Attack(0);
+      // I = instant HEAVY attack (auto-charged)
+      } else if (e.code === 'KeyI') {
+        e.preventDefault(); tryP2Attack(0.7);
+      // L / ArrowRight = shield
+      } else if (e.code === 'KeyL' || e.code === 'ArrowRight') {
         if (p2Hold.shieldKey) return;
         p2Hold.shieldKey = true; e.preventDefault(); tryP2Shield();
-      } else if (e.code === 'KeyH') {
+      // H / ArrowDown = step back
+      } else if (e.code === 'KeyH' || e.code === 'ArrowDown') {
         e.preventDefault(); tryP2StepBack();
       }
     }
@@ -3555,10 +3564,10 @@
     } else if (e.code === 'KeyX' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       holdState.shieldKey = false;
       onShieldRelease();
-    } else if (e.code === 'KeyK') {
+    } else if (e.code === 'KeyK' || e.code === 'ArrowUp') {
       p2Hold.swordKey = false;
       onP2SwordRelease();
-    } else if (e.code === 'KeyL') {
+    } else if (e.code === 'KeyL' || e.code === 'ArrowRight') {
       p2Hold.shieldKey = false;
     }
   });
@@ -5249,6 +5258,16 @@
         ctx.fillStyle = 'rgba(255,255,255,' + fadeT + ')';
         ctx.font = '700 16px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
         ctx.fillText(currentBoss.tip || currentBoss.blurb, cssW / 2, 100);
+      } else if (gameMode === 'local' && (now - matchStartTime) < 8000) {
+        var fadeL = 1 - (now - matchStartTime) / 8000;
+        if (fadeL < 0) fadeL = 0;
+        ctx.fillStyle = 'rgba(77,214,255,' + fadeL + ')';
+        ctx.font = '800 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('P1 (BLUE):  Z = sword (hold for heavy)   X = shield (hold for dodge)   A = step back', 20, cssH - 60);
+        ctx.fillStyle = 'rgba(255,93,126,' + fadeL + ')';
+        ctx.fillText('P2 (RED):   K = sword (hold for heavy)   J = quick light   I = quick heavy   L = shield   H = step back', 20, cssH - 38);
+        ctx.textAlign = 'center';
       } else if (now - matchStartTime < 4500) {
         var fade = 1 - (now - matchStartTime) / 4500;
         if (fade < 0) fade = 0;
@@ -5579,6 +5598,7 @@
     shake = 0; bgFlash = 0; pausedAt = 0;
     holdState.swordDown = false; holdState.shieldDown = false;
     holdState.shieldDodgeFired = false; holdState.swordKey = false; holdState.shieldKey = false;
+    p2Hold.swordDown = false; p2Hold.swordKey = false; p2Hold.shieldKey = false;
     // Arena setup — random by default unless explicitly chosen
     if (mode === 'tutorial') currentArena = ARENAS[0];
     else if (mode !== 'online') currentArena = pendingArenaChoice || ARENAS[Math.floor(Math.random() * ARENAS.length)];
