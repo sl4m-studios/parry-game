@@ -761,6 +761,15 @@
   var DODGE_HOLD_MS = 150;       // hold duration to convert shield press into dodge
   var DODGE_MS = 280;            // i-frame duration
   var DODGE_COOLDOWN_MS = 1500;
+  // Counter window — after a successful parry, defender's next attack hits 1.5x and breaks shields
+  var COUNTER_WINDOW_MS = 600;
+  var COUNTER_DMG_MULT = 1.5;
+  // Killcam — slow-mo on final blow before game over screen
+  var KILLCAM_DURATION_MS = 1500;
+  var KILLCAM_SLOW = 0.35;
+  var killcamPending = false;
+  var killcamStart = 0;
+  var killcamWin = false;
   // Step-back / range — tap A/LEFT or STEP button to back out of light-attack range
   var STEP_BACK_DURATION_MS = 800;
   var STEP_BACK_COOLDOWN_MS = 1200;
@@ -2119,6 +2128,101 @@
     }
   }
 
+  // ---------- Voice barks per character type ----------
+  function playBark(type) {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    var vol = 0.22;
+    if (type === 'knight') {
+      // Low "HAH!" sawtooth grunt, sliding down
+      var osc = audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, t);
+      osc.frequency.exponentialRampToValueAtTime(150, t + 0.12);
+      var g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start(t); osc.stop(t + 0.16);
+    } else if (type === 'wizard') {
+      // Rising "ZAP!" sine sweep
+      var osc1 = audioCtx.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(380, t);
+      osc1.frequency.exponentialRampToValueAtTime(1300, t + 0.18);
+      var g1 = audioCtx.createGain();
+      g1.gain.setValueAtTime(0.0001, t);
+      g1.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+      g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      osc1.connect(g1); g1.connect(audioCtx.destination);
+      osc1.start(t); osc1.stop(t + 0.24);
+      // shimmer noise
+      var noise = audioCtx.createBufferSource();
+      var nb = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.12), audioCtx.sampleRate);
+      var nd = nb.getChannelData(0);
+      for (var i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+      noise.buffer = nb;
+      var bp = audioCtx.createBiquadFilter();
+      bp.type = 'highpass'; bp.frequency.value = 2000;
+      var ng = audioCtx.createGain();
+      ng.gain.value = 0.10;
+      noise.connect(bp); bp.connect(ng); ng.connect(audioCtx.destination);
+      noise.start(t); noise.stop(t + 0.14);
+    } else if (type === 'ranger') {
+      // Bow "TWANG!" — short low-pass noise
+      var n2 = audioCtx.createBufferSource();
+      var nb2 = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.10), audioCtx.sampleRate);
+      var nd2 = nb2.getChannelData(0);
+      for (var j = 0; j < nd2.length; j++) nd2[j] = (Math.random() * 2 - 1) * (1 - j / nd2.length);
+      n2.buffer = nb2;
+      var lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 800;
+      var ng2 = audioCtx.createGain();
+      ng2.gain.setValueAtTime(0.0001, t);
+      ng2.gain.exponentialRampToValueAtTime(vol * 1.4, t + 0.005);
+      ng2.gain.exponentialRampToValueAtTime(0.0001, t + 0.10);
+      n2.connect(lp); lp.connect(ng2); ng2.connect(audioCtx.destination);
+      n2.start(t); n2.stop(t + 0.12);
+      // pluck tone
+      var pluck = audioCtx.createOscillator();
+      pluck.type = 'triangle';
+      pluck.frequency.setValueAtTime(180, t);
+      pluck.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+      var pg = audioCtx.createGain();
+      pg.gain.setValueAtTime(0.0001, t);
+      pg.gain.exponentialRampToValueAtTime(vol * 0.6, t + 0.005);
+      pg.gain.exponentialRampToValueAtTime(0.0001, t + 0.10);
+      pluck.connect(pg); pg.connect(audioCtx.destination);
+      pluck.start(t); pluck.stop(t + 0.12);
+    } else if (type === 'necromancer') {
+      // Low cackle: two square pulses
+      [0, 0.10].forEach(function (delay, idx) {
+        var osc = audioCtx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.value = idx === 0 ? 130 : 110;
+        var g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.0001, t + delay);
+        g.gain.exponentialRampToValueAtTime(vol * 0.7, t + delay + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.08);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(t + delay); osc.stop(t + delay + 0.10);
+      });
+    } else if (type === 'samurai') {
+      // Sharp "KIAI!" — triangle drop + brief noise
+      var s = audioCtx.createOscillator();
+      s.type = 'triangle';
+      s.frequency.setValueAtTime(620, t);
+      s.frequency.exponentialRampToValueAtTime(380, t + 0.10);
+      var sg = audioCtx.createGain();
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(vol * 1.2, t + 0.005);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      s.connect(sg); sg.connect(audioCtx.destination);
+      s.start(t); s.stop(t + 0.14);
+    }
+  }
+
   // ---------- Game state ----------
   var STATE_BOOT = 0, STATE_MENU_MODE = 1, STATE_MATCHMAKING = 2,
       STATE_PLAYING = 3, STATE_GAMEOVER = 4;
@@ -2177,6 +2281,10 @@
       bleedUntil: 0,
       slowUntil: 0,
       lastStatusTickAt: 0,
+      // Counter window
+      counterUntil: 0,
+      isCounterAttack: false,
+      lastBarkAt: 0,
       // Stats
       parryCount: 0,
       superCount: 0,
@@ -2483,10 +2591,26 @@
     f.chargeRatio = ratio;
     f.isHeavyAttack = ratio >= HEAVY_CHARGE_THRESHOLD;
     if (f.isHeavyAttack) f.heaviesThrown = (f.heaviesThrown || 0) + 1;
+    // Counter window consumption + visuals
+    if (f.counterUntil && f.counterUntil > now) {
+      f.isCounterAttack = true;
+      f.counterUntil = 0;
+      addPopup(f, 'COUNTER!', '#ffd34d');
+      addFlash(f, '#ffd34d', 130);
+    } else {
+      f.isCounterAttack = false;
+    }
     // Reset AI shield planning whenever an attack starts
     f.aiWillShieldThis = false;
     f.aiShieldAt = 0;
     f.aiHasPlanned = false;
+    // Voice bark per type (throttled per fighter, skipped for menu fighters)
+    if (!f.silentMode && f.skin && f.skin.type) {
+      if (!f.lastBarkAt || now - f.lastBarkAt > 220) {
+        playBark(f.skin.type);
+        f.lastBarkAt = now;
+      }
+    }
     if (gameMode === 'online' && f.side === 'player') {
       netSend({ type: 'attack_start', heavy: f.isHeavyAttack, charge: ratio });
     }
@@ -2508,6 +2632,7 @@
   function attackDamage(f) {
     var base = lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0);
     var dmgMult = typeStats(f).dmg * (skinBuff(f).dmgMult || 1);
+    if (f.isCounterAttack) dmgMult *= COUNTER_DMG_MULT;
     return Math.round(base * dmgMult);
   }
   function attackWindupMs(f) {
@@ -2567,6 +2692,7 @@
       f.phase = 'idle';
       f.phaseStart = now;
       f.isHeavyAttack = false;
+      f.isCounterAttack = false;
       if (f.side === 'player') {
         f.attackCooldownUntil = now + ATTACK_COOLDOWN_MS;
         f.nextAttackAt = Infinity;
@@ -2640,9 +2766,9 @@
       return;
     }
 
-    // Shield: blocks light, BREAKS on heavy
+    // Shield: blocks light, BREAKS on heavy or counter-attack
     if (defender.shieldUpUntil > now) {
-      if (attacker.isHeavyAttack) {
+      if (attacker.isHeavyAttack || attacker.isCounterAttack) {
         // SHIELD BREAK
         defender.shieldUpUntil = 0;
         defender.shieldRaiseT = 0;
@@ -2998,6 +3124,8 @@
     bgFlash = Math.max(bgFlash, isSuper ? 0.7 : 0.5);
     if (isSuper) playSuper(); else playClang();
     if (isSuper) triggerUltimate(defender, attacker, now);
+    // Open counter window for the defender (their next attack within COUNTER_WINDOW_MS gets +50% + shield-break)
+    defender.counterUntil = now + COUNTER_WINDOW_MS;
     checkEnd();
   }
 
@@ -3104,7 +3232,7 @@
     }
 
     if (player.shieldUpUntil > now) {
-      if (attacker.isHeavyAttack) {
+      if (attacker.isHeavyAttack || attacker.isCounterAttack) {
         // SHIELD BREAK on local player
         player.shieldUpUntil = 0;
         player.shieldRaiseT = 0;
@@ -3203,9 +3331,16 @@
   function checkEnd() {
     if (gameState !== STATE_PLAYING) return;
     if (gameMode === 'tutorial') return;
-    if (player.hp <= 0 && enemy.hp <= 0) endMatch(false);
-    else if (enemy.hp <= 0) endMatch(true);
-    else if (player.hp <= 0) endMatch(false);
+    if (killcamPending) return; // already counting down
+    var won = null;
+    if (player.hp <= 0 && enemy.hp <= 0) won = false;
+    else if (enemy.hp <= 0) won = true;
+    else if (player.hp <= 0) won = false;
+    if (won === null) return;
+    // Trigger killcam — defer the actual endMatch until slow-mo finishes
+    killcamPending = true;
+    killcamStart = performance.now();
+    killcamWin = won;
   }
 
   // ---------- Effects ----------
@@ -3530,6 +3665,12 @@
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     ensureAudio();
+    // Tap-to-skip killcam
+    if (killcamPending) {
+      killcamPending = false;
+      endMatch(killcamWin);
+      return;
+    }
     if (gameState !== STATE_PLAYING) return;
     dispatchByButton(e, true);
   }, { passive: false });
@@ -5385,11 +5526,48 @@
     var dt = now - lastTime;
     if (dt > 100) dt = 100;
     lastTime = now;
-    update(now, dt);
+    // Killcam: slow simulation but real time still flows for the duration check
+    if (killcamPending) {
+      var elapsed = now - killcamStart;
+      if (elapsed >= KILLCAM_DURATION_MS) {
+        killcamPending = false;
+        endMatch(killcamWin);
+      } else {
+        update(now, dt * KILLCAM_SLOW);
+      }
+    } else {
+      update(now, dt);
+    }
     ctx.clearRect(0, 0, cssW, cssH);
     render(now);
+    if (killcamPending) drawKillcamOverlay(now);
     updateActionButtonCooldowns(now);
     requestAnimationFrame(loop);
+  }
+
+  function drawKillcamOverlay(now) {
+    var elapsed = now - killcamStart;
+    var t = elapsed / KILLCAM_DURATION_MS;
+    if (t > 1) t = 1;
+    // Fade in then out
+    var alpha = t < 0.2 ? (t / 0.2) : (t > 0.7 ? (1 - (t - 0.7) / 0.3) : 1);
+    if (alpha < 0) alpha = 0;
+    // Vignette
+    var vg = ctx.createRadialGradient(cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.2, cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.7);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,' + (alpha * 0.55) + ')');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, cssW, cssH);
+    // Big text
+    ctx.fillStyle = 'rgba(255,211,77,' + alpha + ')';
+    ctx.font = '900 ' + Math.round(60 + 20 * (1 - alpha)) + 'px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('FINAL BLOW', cssW / 2, cssH * 0.32);
+    // Skip hint
+    ctx.fillStyle = 'rgba(255,255,255,' + (alpha * 0.7) + ')';
+    ctx.font = '700 14px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.fillText('TAP TO SKIP', cssW / 2, cssH * 0.32 + 50);
   }
   requestAnimationFrame(loop);
 
@@ -5625,6 +5803,7 @@
     pendingAttackerFallbacks.length = 0;
     hazards.length = 0; powerup = null;
     shake = 0; bgFlash = 0; pausedAt = 0;
+    killcamPending = false;
     holdState.swordDown = false; holdState.shieldDown = false;
     holdState.shieldDodgeFired = false; holdState.swordKey = false; holdState.shieldKey = false;
     p2Hold.swordDown = false; p2Hold.swordKey = false; p2Hold.shieldKey = false;
