@@ -2523,15 +2523,13 @@
             }
           }
           f.strikeResolved = true;
-        } else if (gameMode === 'ai' || gameMode === 'campaign') {
+        } else if (gameMode === 'ai' || gameMode === 'campaign' || gameMode === 'survival' || gameMode === 'local') {
           resolveStrike(f, now);
         } else {
           // online
           if (f.side === 'enemy') {
-            // Local player defends; shield check inside, also notifies opponent
             resolveStrikeOnline(f, now);
           } else {
-            // Local player attacks — wait for opponent's verdict
             scheduleAttackerFallback(f, now);
           }
         }
