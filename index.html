@@ -248,6 +248,74 @@
     font-size: 14px; color: #aaa;
   }
 
+  /* ---------- Leaderboard panel ---------- */
+  .leaderboard-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px; padding: 12px 14px;
+    width: 92%; max-width: 480px;
+    height: 45vh; max-height: 380px; min-height: 220px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .lb-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .lb-title {
+    font-weight: 900; font-size: 14px; letter-spacing: 0.06em;
+    color: #ffd34d;
+  }
+  .lb-tabs {
+    display: flex; gap: 4px; flex-wrap: wrap;
+  }
+  .lb-tab {
+    font: inherit; font-weight: 800; font-size: 10px; letter-spacing: 0.05em;
+    padding: 4px 8px; border-radius: 999px; border: 0;
+    background: rgba(255,255,255,0.08); color: #aaa;
+    cursor: pointer;
+  }
+  .lb-tab.active { background: #ffd34d; color: #1a1300; }
+  .lb-list {
+    flex: 1; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 3px;
+    padding-right: 4px;
+  }
+  .lb-row {
+    display: grid; grid-template-columns: 32px 1fr auto;
+    align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    font-size: 12px;
+  }
+  .lb-row.user {
+    background: rgba(255,211,77,0.15);
+    border: 1px solid rgba(255,211,77,0.5);
+  }
+  .lb-row .lb-rank { color: #888; font-weight: 800; text-align: right; }
+  .lb-row.top1 .lb-rank { color: #ffd34d; }
+  .lb-row.top2 .lb-rank { color: #d8d8e0; }
+  .lb-row.top3 .lb-rank { color: #cc8030; }
+  .lb-row .lb-name {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0;
+  }
+  .lb-row .lb-nm {
+    font-weight: 700; color: #fff;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .lb-row.user .lb-nm { color: #ffd34d; }
+  .lb-row .lb-type {
+    font-size: 9px; padding: 1px 6px; border-radius: 999px;
+    background: rgba(255,255,255,0.10); color: #ccc;
+    letter-spacing: 0.04em; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .lb-row .lb-val {
+    font-weight: 900; color: #fff; font-variant-numeric: tabular-nums;
+  }
+  .lb-row.user .lb-val { color: #ffd34d; }
+
   /* ---------- Arena selector ---------- */
   .arena-row {
     display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
@@ -637,6 +705,13 @@
     <div class="rp-bar"><div class="rp-fill" id="modeRpFill" style="width:0%"></div></div>
     <div class="career-stats" id="modeCareer"></div>
     <div class="mode-note">VS Player matches affect your rank. VS AI is unranked practice.</div>
+  </div>
+  <div class="leaderboard-card" id="leaderboardCard">
+    <div class="lb-header">
+      <span class="lb-title">🏆 LEADERBOARD</span>
+      <div class="lb-tabs" id="lbTabs"></div>
+    </div>
+    <div class="lb-list" id="lbList"></div>
   </div>
   <div class="arena-row" id="arenaRow"></div>
   <div class="btn-row">
@@ -2019,6 +2094,7 @@
           maxStreakEver: typeof p.maxStreakEver === 'number' ? p.maxStreakEver : 0,
           survivalBest: typeof p.survivalBest === 'number' ? p.survivalBest : 0,
           friendCode: (typeof p.friendCode === 'string' && p.friendCode.length === 4) ? p.friendCode : makeFriendCode(),
+          lbBots: Array.isArray(p.lbBots) ? p.lbBots : [],
           daily: (p.daily && typeof p.daily === 'object') ? p.daily : { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
           stats: {
             matches: (p.stats && p.stats.matches) || 0,
@@ -2040,7 +2116,7 @@
       rp: 0, tutorialDone: false,
       username: makeDefaultUsername(), soundOn: true, skin: 'knight',
       coins: 0, purchasedSkins: [],
-      campaignBeaten: [], friendCode: makeFriendCode(),
+      campaignBeaten: [], friendCode: makeFriendCode(), lbBots: [],
       classWins: { knight: 0, wizard: 0, ranger: 0, necromancer: 0, samurai: 0, barbarian: 0 },
       perfectWins: 0, maxStreakEver: 0, survivalBest: 0,
       daily: { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
@@ -2053,6 +2129,55 @@
     var s = '';
     for (var i = 0; i < 4; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
     return s;
+  }
+
+  // ---------- Leaderboard bots (procedural competitors) ----------
+  var BOT_NAME_PARTS = [
+    'WIZARD','SHADOW','BLAZE','IRON','FROST','SHARP','RAVEN','THUNDER','SKULL','REX',
+    'APEX','VOID','GHOST','EMBER','STORM','VENOM','REAPER','CRIMSON','HUNTER','VIPER',
+    'TITAN','ECHO','DUSK','SPIKE','FANG','VEX','DRAKE','ZANE','KAI','NOX',
+    'BORIS','ARCANE','QUICK','SLAYER','OMEGA','VYR','RIO','MARA','GLITCH','HYDRA'
+  ];
+  function generateBot() {
+    var part = BOT_NAME_PARTS[Math.floor(Math.random() * BOT_NAME_PARTS.length)];
+    var nums = Math.floor(100 + Math.random() * 9900);
+    var type = TYPE_ORDER[Math.floor(Math.random() * TYPE_ORDER.length)];
+    // skew distributions so most bots are mid-tier with a few elites
+    function skew(base, max) { return Math.floor(base + Math.pow(Math.random(), 1.6) * (max - base)); }
+    return {
+      name: part + nums,
+      type: type,
+      rp: skew(0, 1800),
+      coins: skew(0, 14000),
+      damage: skew(200, 90000),
+      wins: skew(0, 130),
+      survival: skew(0, 22),
+      streak: skew(0, 14)
+    };
+  }
+  function ensureLeaderboardBots() {
+    if (profile.lbBots && profile.lbBots.length >= 30) return;
+    var bots = [];
+    for (var i = 0; i < 40; i++) bots.push(generateBot());
+    profile.lbBots = bots;
+    saveProfile();
+  }
+  function getLeaderboardEntries() {
+    ensureLeaderboardBots();
+    var entries = profile.lbBots.slice();
+    var s = profile.stats || {};
+    entries.push({
+      name: profile.username,
+      type: (getSkin(profile.skin) || SKINS[0]).type,
+      rp: profile.rp || 0,
+      coins: s.totalCoinsEarned || 0,
+      damage: s.totalDamageDealt || 0,
+      wins: s.wins || 0,
+      survival: profile.survivalBest || 0,
+      streak: profile.maxStreakEver || 0,
+      isUser: true
+    });
+    return entries;
   }
 
   function saveProfile() {
@@ -6535,6 +6660,58 @@
     renderArenaPicker();
     refreshDailiesIfNeeded();
     startModeCharLoop();
+    renderLeaderboard();
+  }
+
+  // ---------- Leaderboard render ----------
+  var LB_METRICS = [
+    { id: 'coins',    label: '🪙 COINS',  fmt: function (v) { return v.toLocaleString(); } },
+    { id: 'damage',   label: '💥 DMG',    fmt: function (v) { return v.toLocaleString(); } },
+    { id: 'wins',     label: '⚔ WINS',    fmt: function (v) { return String(v); } },
+    { id: 'survival', label: '💀 WAVE',   fmt: function (v) { return String(v); } },
+    { id: 'streak',   label: '🌟 STREAK', fmt: function (v) { return String(v); } }
+  ];
+  var lbCurrentMetric = 'coins';
+
+  function renderLeaderboard() {
+    var tabsEl = document.getElementById('lbTabs');
+    var listEl = document.getElementById('lbList');
+    if (!tabsEl || !listEl) return;
+    // Tabs
+    tabsEl.innerHTML = '';
+    LB_METRICS.forEach(function (m) {
+      var b = document.createElement('button');
+      b.className = 'lb-tab' + (m.id === lbCurrentMetric ? ' active' : '');
+      b.textContent = m.label;
+      b.addEventListener('click', function () {
+        lbCurrentMetric = m.id;
+        renderLeaderboard();
+      });
+      tabsEl.appendChild(b);
+    });
+    // List sorted by current metric desc
+    var entries = getLeaderboardEntries().slice();
+    var metricObj = LB_METRICS.filter(function (m) { return m.id === lbCurrentMetric; })[0];
+    entries.sort(function (a, b) { return (b[lbCurrentMetric] || 0) - (a[lbCurrentMetric] || 0); });
+    listEl.innerHTML = '';
+    entries.forEach(function (e, i) {
+      var row = document.createElement('div');
+      var rankClass = '';
+      if (i === 0) rankClass = ' top1';
+      else if (i === 1) rankClass = ' top2';
+      else if (i === 2) rankClass = ' top3';
+      row.className = 'lb-row' + (e.isUser ? ' user' : '') + rankClass;
+      var typeShort = (TYPE_LABEL[e.type] || e.type || '').slice(0, 4);
+      row.innerHTML =
+        '<div class="lb-rank">#' + (i + 1) + '</div>' +
+        '<div class="lb-name"><span class="lb-nm">' + (e.isUser ? '⭐ ' : '') + e.name + '</span><span class="lb-type">' + typeShort + '</span></div>' +
+        '<div class="lb-val">' + metricObj.fmt(e[lbCurrentMetric] || 0) + '</div>';
+      listEl.appendChild(row);
+      if (e.isUser) {
+        // scroll user into view
+        setTimeout(function () { row.scrollIntoView({ block: 'center', behavior: 'auto' }); }, 0);
+      }
+    });
   }
 
   function renderArenaPicker() {
