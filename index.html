@@ -2543,10 +2543,10 @@
       if (f.side === 'player') {
         f.attackCooldownUntil = now + ATTACK_COOLDOWN_MS;
         f.nextAttackAt = Infinity;
-      } else if (gameMode === 'campaign') {
+      } else if (gameMode === 'campaign' || gameMode === 'survival') {
         // Boss brain decides next attack time
         f.nextAttackAt = Infinity;
-      } else if (gameMode === 'ai') {
+      } else if (gameMode === 'ai' || gameMode === 'local') {
         f.nextAttackAt = now + ATTACK_INTERVAL_MS + (Math.random() - 0.5) * ATTACK_INTERVAL_JITTER_MS;
       } else if (gameMode === 'tutorial') {
         f.nextAttackAt = now + 2200;
@@ -3646,13 +3646,11 @@
     [player, enemy].forEach(function (f) {
       if (!f) return;
       if (f.phase === 'idle') {
-        // In campaign mode, the boss brain handles its own attack initiation;
-        // skip the generic auto-fire to avoid overriding the boss's intended charge.
-        if (gameMode === 'campaign' && f.side === 'enemy') {
-          // no-op — bossBrain will handle
+        if ((gameMode === 'campaign' || gameMode === 'survival') && f.side === 'enemy') {
+          // boss brain handles its own attacks
         } else if (now >= f.nextAttackAt && f.hp > 0 && now >= f.stunUntil) {
           var ratio = 0;
-          if (f.side === 'enemy' && (gameMode === 'ai' || gameMode === 'tutorial')) {
+          if (f.side === 'enemy' && (gameMode === 'ai' || gameMode === 'tutorial' || gameMode === 'local')) {
             var roll = Math.random();
             if (roll < 0.55) ratio = Math.random() * 0.3;
             else if (roll < 0.85) ratio = 0.3 + Math.random() * 0.3;
@@ -3673,8 +3671,8 @@
       bossBrain(now);
     }
 
-    // AI defensive choices (AI mode only) — reactive to player attacks
-    if (gameMode === 'ai' && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
+    // AI defensive choices (also runs in local 2P as a bot-fill if no P2)
+    if ((gameMode === 'ai' || gameMode === 'local') && player && enemy && enemy.hp > 0 && now >= enemy.stunUntil) {
       if (player.phase === 'windup' || player.phase === 'strike') {
         if (!player.aiHasPlanned) {
           player.aiHasPlanned = true;
@@ -5586,7 +5584,8 @@
     } else if (mode === 'campaign' || mode === 'survival') {
       enemy.nextAttackAt = Infinity; // boss brain controls
     } else if (mode === 'local') {
-      enemy.nextAttackAt = Infinity; // p2 controls
+      // Default: AI controls until P2 input arrives; P2 takes over momentarily
+      enemy.nextAttackAt = now + 1500;
     } else {
       enemy.nextAttackAt = Infinity; // net-driven
     }
