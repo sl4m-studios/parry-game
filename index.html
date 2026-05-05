@@ -2155,18 +2155,14 @@
       streak: skew(0, 14)
     };
   }
-  function ensureLeaderboardBots() {
-    if (profile.lbBots && profile.lbBots.length >= 30) return;
-    var bots = [];
-    for (var i = 0; i < 40; i++) bots.push(generateBot());
-    profile.lbBots = bots;
-    saveProfile();
-  }
   function getLeaderboardEntries() {
-    ensureLeaderboardBots();
-    var entries = profile.lbBots.slice();
+    // Wipe any old procedural bots — leaderboard only shows real players
+    if (profile.lbBots && profile.lbBots.length) {
+      profile.lbBots = [];
+      saveProfile();
+    }
     var s = profile.stats || {};
-    entries.push({
+    return [{
       name: profile.username,
       type: (getSkin(profile.skin) || SKINS[0]).type,
       rp: profile.rp || 0,
@@ -2176,8 +2172,7 @@
       survival: profile.survivalBest || 0,
       streak: profile.maxStreakEver || 0,
       isUser: true
-    });
-    return entries;
+    }];
   }
 
   function saveProfile() {
@@ -6694,6 +6689,16 @@
     var metricObj = LB_METRICS.filter(function (m) { return m.id === lbCurrentMetric; })[0];
     entries.sort(function (a, b) { return (b[lbCurrentMetric] || 0) - (a[lbCurrentMetric] || 0); });
     listEl.innerHTML = '';
+    if (entries.length <= 1) {
+      var note = document.createElement('div');
+      note.style.padding = '20px 14px';
+      note.style.fontSize = '12px';
+      note.style.color = '#aaa';
+      note.style.textAlign = 'center';
+      note.style.lineHeight = '1.5';
+      note.textContent = 'You\'re the only one here. A live leaderboard needs a server — once one is set up, real players who post scores will appear automatically.';
+      listEl.appendChild(note);
+    }
     entries.forEach(function (e, i) {
       var row = document.createElement('div');
       var rankClass = '';
