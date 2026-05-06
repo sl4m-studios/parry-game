@@ -320,14 +320,24 @@
   .lb-row.user .lb-lvl { background: rgba(255,211,77,0.2); color: #ffd34d; }
 
   /* ---------- Mode-screen "skills beside leaderboard" row ---------- */
+  /* gap:0 + flush borders so the two cards visually touch each other. */
   .lb-skills-row {
-    display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap;
+    display: flex; flex-direction: row; gap: 0; flex-wrap: wrap;
     width: 92%; max-width: 980px;
     align-items: stretch; justify-content: center;
   }
   .lb-skills-row > .leaderboard-card,
   .lb-skills-row > .skills-mini-card {
     flex: 1 1 320px; width: auto; max-width: none;
+  }
+  /* When sitting in the row together, square the touching edges so the
+     two panels read as one widget split into "leaderboard | skills". */
+  .lb-skills-row > .leaderboard-card {
+    border-top-right-radius: 0; border-bottom-right-radius: 0;
+    border-right-width: 0;
+  }
+  .lb-skills-row > .skills-mini-card {
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
   }
   .skills-mini-card {
     background: rgba(255,255,255,0.04);
@@ -2430,15 +2440,16 @@
       }
     } catch (e) {}
   })();
-  // Code-entry trigger: type 6767 anywhere. Only the admin username gets in;
-  // anyone else sees an "access denied" toast so they know the code worked
+  // Code-entry trigger: type 1236 anywhere. Only the admin username gets in;
+  // anyone else sees an "access denied" alert so they know the code worked
   // but isn't for them.
+  var ADMIN_CODE = '1236';
   (function () {
     var buf = '';
     window.addEventListener('keydown', function (e) {
       if (!e.key || e.key.length !== 1) return;
       buf = (buf + e.key).slice(-8);
-      if (buf.endsWith('6767') && !profile.isAdmin) {
+      if (buf.endsWith(ADMIN_CODE) && !profile.isAdmin) {
         if (grantAdmin()) {
           alert('🛠️ Admin unlocked. Open the ADMIN button on the mode menu.');
         } else {
@@ -8259,7 +8270,7 @@
     var label = document.getElementById('modeSkillPageLabel');
     if (!list || !label) return;
     var typeId = currentSkillType();
-    label.textContent = (TYPE_LABEL[typeId] || typeId) + ' · ' + (skillPageIdx + 1) + ' / ' + TYPE_ORDER.length;
+    label.textContent = 'PAGE ' + (skillPageIdx + 1) + ' / ' + TYPE_ORDER.length + ' · ' + (TYPE_LABEL[typeId] || typeId);
     list.innerHTML = '';
     getSkillsForType(typeId).forEach(function (skill) {
       var unlocked = isSkillUnlocked(typeId, skill.id);
