@@ -6712,12 +6712,13 @@
   }
 
   function wandererSpawnSection(startX) {
-    // Spawn 3 enemies + 2 platforms across the next ~600 world units
+    // Spawn 1-3 spaced-out enemies + 2 platforms across the next ~900 world units
     var section = wandererState.sectionsSpawned++;
     var enemyTypes = ['knight', 'reaver', 'shadow', 'wiz_apprentice', 'rgr_scout', 'sam_ronin', 'nec_apprentice', 'bar_wildone'];
-    var n = 3 + Math.floor(Math.random() * 2);
+    var n = 1 + Math.floor(Math.random() * 3); // 1, 2, or 3 enemies
     for (var i = 0; i < n; i++) {
-      var ex = startX + 400 + i * 180 + Math.random() * 60;
+      // Wider spacing so enemies don't bunch up — at least 280 px between
+      var ex = startX + 500 + i * 320 + Math.random() * 80;
       var skinId = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
       var e = makeFighter('enemy');
       e.skin = getSkin(skinId);
@@ -6726,15 +6727,16 @@
       e.wx = ex; e.wy = 0; e.vx = 0; e.vy = 0;
       e.onGround = true; e.facingDir = -1;
       e.aiAttackCooldown = 1500 + Math.random() * 1500;
+      e.aggro = false;
       wandererEnemies.push(e);
     }
     // Platforms — randomly placed within the section
     for (var p = 0; p < 2; p++) {
-      var px = startX + 250 + p * 280 + Math.random() * 80;
+      var px = startX + 300 + p * 380 + Math.random() * 80;
       var py = 70 + Math.random() * 60; // height above ground (positive = higher)
       wandererPlatforms.push({ wx: px, wy: py, w: 90 + Math.random() * 60, h: 18 });
     }
-    wandererState.lastSpawnX = startX + 700;
+    wandererState.lastSpawnX = startX + 1000;
   }
 
   function tryWandererAttack() {
@@ -6818,14 +6820,21 @@
     if (targetCam < 0) targetCam = 0;
     wandererState.camX += (targetCam - wandererState.camX) * 0.12;
 
-    // Enemy AI + physics
+    // Enemy AI + physics — enemies are passive until player gets near (aggro range)
+    var AGGRO_RANGE = 320;       // distance at which enemy notices player
+    var DEAGGRO_RANGE = 520;     // distance at which enemy gives up (hysteresis)
+    var ATTACK_RANGE = 260;      // distance at which an aggro'd enemy fires
     for (var ei = wandererEnemies.length - 1; ei >= 0; ei--) {
       var e = wandererEnemies[ei];
       if (e.hp <= 0) continue;
       var dx = player.wx - e.wx;
       var dist = Math.abs(dx);
       e.facingDir = dx > 0 ? 1 : -1;
-      if (dist > 110) {
+      // Aggro state machine
+      if (!e.aggro && dist < AGGRO_RANGE) e.aggro = true;
+      else if (e.aggro && dist > DEAGGRO_RANGE) e.aggro = false;
+      // Movement: only chase when aggro'd, AND only when player is far enough that we want to close
+      if (e.aggro && dist > 110) {
         e.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7;
       } else {
         e.vx = 0;
@@ -6834,9 +6843,9 @@
       e.wx += e.vx * dt;
       e.wy -= e.vy * dt;
       if (e.wy <= 0) { e.wy = 0; e.vy = 0; }
-      // Enemy attacks when in range and cooldown elapsed
+      // Enemy attacks ONLY when aggro'd, in range, and cooldown elapsed
       e.aiAttackCooldown -= dt;
-      if (dist < 280 && e.aiAttackCooldown <= 0) {
+      if (e.aggro && dist < ATTACK_RANGE && e.aiAttackCooldown <= 0) {
         var ews = (e.skin && e.skin.weaponStyle) || 'sword';
         wandererProjectiles.push({
           wx: e.wx + e.facingDir * 30, wy: -e.wy - 50,
