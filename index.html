@@ -3962,6 +3962,7 @@
 
   function onSwordPress() {
     if (gameState !== STATE_PLAYING) return;
+    if (gameMode === 'wanderer') { tryWandererAttack(); return; }
     if (holdState.swordDown) return;
     holdState.swordDown = true;
     holdState.swordDownAt = performance.now();
@@ -3973,12 +3974,14 @@
     holdState.swordDown = false;
     if (player) player.heavyChargeStart = 0;
     if (gameState !== STATE_PLAYING) return;
+    if (gameMode === 'wanderer') return; // wanderer uses tap-fire (no charge)
     var ratio = Math.min(1, Math.max(0, heldFor / MAX_CHARGE_HOLD_MS));
     tryPlayerAttack(ratio);
   }
 
   function onShieldPress() {
     if (gameState !== STATE_PLAYING) return;
+    if (gameMode === 'wanderer') { tryWandererShield(); return; }
     if (holdState.shieldDown) return;
     holdState.shieldDown = true;
     holdState.shieldDownAt = performance.now();
@@ -3989,6 +3992,7 @@
     var heldFor = performance.now() - holdState.shieldDownAt;
     holdState.shieldDown = false;
     if (gameState !== STATE_PLAYING) return;
+    if (gameMode === 'wanderer') return;
     if (!holdState.shieldDodgeFired && heldFor < DODGE_HOLD_MS) {
       tryPlayerShield();
     }
@@ -4026,10 +4030,14 @@
       return;
     }
     if (gameState !== STATE_PLAYING) return;
-    // Wanderer mode: tap right half = attack, tap left half = jump (mobile fallback)
+    // Wanderer mode: left = attack, right = shield (mouse). Touch: tap-anywhere = attack.
     if (gameMode === 'wanderer') {
-      if (e.clientX > cssW / 2) tryWandererAttack();
-      else { wandererInput.jump = true; setTimeout(function () { wandererInput.jump = false; }, 100); }
+      if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+        if (e.button === 2) tryWandererShield();
+        else tryWandererAttack();
+      } else {
+        tryWandererAttack();
+      }
       return;
     }
     dispatchByButton(e, true);
@@ -6739,6 +6747,14 @@
     wandererState.lastSpawnX = startX + 1000;
   }
 
+  function tryWandererShield() {
+    if (!player || gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (now < player.shieldCooldownUntil) return;
+    if (player.shieldUpUntil > now) return;
+    raiseShield(player, now);
+  }
+
   function tryWandererAttack() {
     if (!player || gameState !== STATE_PLAYING) return;
     var now = performance.now();
@@ -6897,13 +6913,21 @@
         // Enemy projectile vs player
         var pScreenY = -player.wy - 50;
         if (Math.abs(pr.wx - player.wx) < 30 && Math.abs(pr.wy - pScreenY) < 40) {
-          player.hp = Math.max(0, player.hp - pr.dmg);
-          player.hurtFlash = 1;
-          addPopup(player, '-' + pr.dmg, '#ff5555');
-          shake = Math.max(shake, 8);
-          playHit();
-          wandererProjectiles.splice(pi, 1);
-          if (player.hp <= 0) wandererGameOver();
+          // Shield blocks!
+          if (player.shieldUpUntil > now) {
+            addPopup(player, 'BLOCK', '#ffd34d');
+            playClang();
+            shake = Math.max(shake, 6);
+            wandererProjectiles.splice(pi, 1);
+          } else {
+            player.hp = Math.max(0, player.hp - pr.dmg);
+            player.hurtFlash = 1;
+            addPopup(player, '-' + pr.dmg, '#ff5555');
+            shake = Math.max(shake, 8);
+            playHit();
+            wandererProjectiles.splice(pi, 1);
+            if (player.hp <= 0) wandererGameOver();
+          }
         }
       }
     }
