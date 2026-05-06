@@ -311,6 +311,12 @@
     letter-spacing: 0.04em; font-weight: 800;
     flex-shrink: 0;
   }
+  .lb-row .lb-lvl {
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: rgba(120,180,255,0.15); color: #9ed4ff;
+    font-weight: 800; flex-shrink: 0;
+  }
+  .lb-row.user .lb-lvl { background: rgba(255,211,77,0.2); color: #ffd34d; }
   .lb-row .lb-val {
     font-weight: 900; color: #fff; font-variant-numeric: tabular-nums;
   }
@@ -723,6 +729,7 @@
     <button class="btn secondary" data-action="mode-local"><span class="ico">🎮</span>LOCAL 2P</button>
     <button class="btn secondary" data-action="mode-wanderer"><span class="ico">🌍</span>WANDERER</button>
     <button class="btn secondary" data-action="open-skins"><span class="ico">🎨</span>SKINS</button>
+    <button class="btn secondary" data-action="open-skills"><span class="ico">🌳</span>SKILL TREE</button>
     <button class="btn secondary" data-action="open-dailies"><span class="ico">📅</span>DAILIES</button>
     <button class="btn secondary" data-action="open-stats"><span class="ico">📊</span>STATS</button>
   </div>
@@ -776,6 +783,16 @@
   <div class="skin-tabs" id="skinTabs"></div>
   <div id="skinTypeInfo" class="type-info"></div>
   <div class="skin-grid" id="skinGrid"></div>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="skills">
+  <h2 class="subtitle">SKILL TREE</h2>
+  <div id="skillSpBal" class="coin-balance">0 SP</div>
+  <div class="skin-tabs" id="skillTabs"></div>
+  <div id="skillTypeInfo" class="type-info"></div>
+  <div class="skin-grid" id="skillGrid"></div>
+  <p class="lead small">Skills bind to <b>Q · E · R · F · G</b> in unlock order. Cast in WANDERER mode.</p>
   <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
 
@@ -1923,6 +1940,86 @@
     if (f && f.skin && TYPE_STATS[f.skin.type]) return TYPE_STATS[f.skin.type];
     return TYPE_STATS.knight;
   }
+
+  // ---------- Skills (per type, 5 each, active moves bound to Q/E/R/F/G) ----------
+  var SKILL_KEYS = ['Q', 'E', 'R', 'F', 'G'];
+  var SKILLS = {
+    knight: [
+      { id:'shield_bash', name:'SHIELD BASH',   desc:'Lunge forward, stun on hit (0.5s)', cooldown:4000,  family:'mobility', icon:'🛡️' },
+      { id:'iron_will',   name:'IRON WILL',     desc:'Brief invuln + 30% speed (2s)',     cooldown:6000,  family:'buff',     icon:'✨' },
+      { id:'lance_stab',  name:'LANCE STAB',    desc:'Long-reach piercing thrust',         cooldown:3000,  family:'projectile', icon:'➤' },
+      { id:'rampart',     name:'RAMPART',       desc:'Plant a wall blocking projectiles', cooldown:8000,  family:'aoe',      icon:'🧱' },
+      { id:'oath',        name:'OATH OF VALOR', desc:'Heal 25 HP over 3s',                cooldown:12000, family:'heal',     icon:'❤️' }
+    ],
+    wizard: [
+      { id:'fireball',  name:'FIREBALL',        desc:'Big AoE burst projectile',          cooldown:3500,  family:'projectile', icon:'🔥' },
+      { id:'blink',     name:'BLINK',           desc:'Teleport ahead with i-frames',      cooldown:5000,  family:'mobility',   icon:'⚡' },
+      { id:'lightning', name:'CHAIN LIGHTNING', desc:'Zaps up to 3 nearby enemies',       cooldown:6000,  family:'aoe',        icon:'⚡' },
+      { id:'frostnova', name:'FROST NOVA',      desc:'Freeze nearby enemies (1.5s)',      cooldown:7000,  family:'aoe',        icon:'❄️' },
+      { id:'meteor',    name:'METEOR',          desc:'Falling crash from above',          cooldown:10000, family:'aoe',        icon:'☄️' }
+    ],
+    ranger: [
+      { id:'multishot', name:'MULTISHOT',     desc:'3 arrows in a fan',           cooldown:4000, family:'projectile', icon:'🏹' },
+      { id:'piercing',  name:'PIERCING SHOT', desc:'Arrow passes through enemies',cooldown:3500, family:'projectile', icon:'➤' },
+      { id:'venom',     name:'VENOM ARROW',   desc:'DoT damage over 4s',          cooldown:5000, family:'projectile', icon:'🐍' },
+      { id:'roll',      name:'COMBAT ROLL',   desc:'Quick dodge with i-frames',   cooldown:4000, family:'mobility',   icon:'💨' },
+      { id:'rain',      name:'ARROW RAIN',    desc:'Volley falls in target zone', cooldown:9000, family:'aoe',        icon:'🌧️' }
+    ],
+    necromancer: [
+      { id:'soulrip',   name:'SOUL RIP',       desc:'Drain 15 HP from target',     cooldown:5000,  family:'projectile', icon:'👻' },
+      { id:'minion',    name:'RAISE SKELETON', desc:'Summon ally that attacks (8s)', cooldown:12000, family:'buff',     icon:'💀' },
+      { id:'curse',     name:'CURSE OF DECAY', desc:'Halve enemy damage (4s)',     cooldown:7000,  family:'aoe',       icon:'🦴' },
+      { id:'death_orb', name:'ORB OF NIGHT',   desc:'Slow tracking projectile',    cooldown:4500,  family:'projectile', icon:'🌑' },
+      { id:'reaper',    name:'REAPER MARK',    desc:'Next hit deals 3x dmg',       cooldown:10000, family:'buff',      icon:'☠️' }
+    ],
+    samurai: [
+      { id:'iaido', name:'IAIDO STRIKE', desc:'Lightning counter slash',           cooldown:4000,  family:'mobility',   icon:'⚔️' },
+      { id:'wind',  name:'WIND CUTTER',  desc:'Sword wave projectile',             cooldown:3500,  family:'projectile', icon:'🌬️' },
+      { id:'focus', name:'FOCUS',        desc:'Slow time briefly (2s)',            cooldown:8000,  family:'buff',       icon:'🌀' },
+      { id:'dash',  name:'KATA DASH',    desc:'Dash + slash all in path',          cooldown:5000,  family:'mobility',   icon:'💨' },
+      { id:'final', name:'FINAL STAND',  desc:'+50% dmg when below 30% HP (5s)',   cooldown:10000, family:'buff',       icon:'🔥' }
+    ],
+    barbarian: [
+      { id:'rage',    name:'RAGE',        desc:'+30% dmg + speed (4s)',          cooldown:8000, family:'buff',     icon:'😠' },
+      { id:'whirl',   name:'WHIRLWIND',   desc:'Spin attack hits all around',     cooldown:5000, family:'aoe',      icon:'🌪️' },
+      { id:'leap',    name:'LEAP SLAM',   desc:'Jump then crash down',            cooldown:6000, family:'mobility', icon:'🦘' },
+      { id:'roar',    name:'BATTLE ROAR', desc:'Stun all nearby for 1s',          cooldown:7000, family:'aoe',      icon:'📣' },
+      { id:'execute', name:'EXECUTE',     desc:'Massive dmg vs <30% HP target',   cooldown:9000, family:'mobility', icon:'💥' }
+    ]
+  };
+  function getSkillsForType(t) { return SKILLS[t] || SKILLS.knight; }
+  function getSkillById(typeId, id) {
+    var arr = getSkillsForType(typeId);
+    for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i];
+    return null;
+  }
+  function isSkillUnlocked(typeId, id) {
+    var arr = profile.unlockedSkills && profile.unlockedSkills[typeId];
+    return Array.isArray(arr) && arr.indexOf(id) !== -1;
+  }
+  function unlockSkill(typeId, id) {
+    if (isSkillUnlocked(typeId, id)) return false;
+    if ((profile.skillPoints || 0) < 1) return false;
+    profile.skillPoints -= 1;
+    if (!profile.unlockedSkills[typeId]) profile.unlockedSkills[typeId] = [];
+    profile.unlockedSkills[typeId].push(id);
+    // auto-bind to next free slot
+    if (!profile.boundSkills[typeId]) profile.boundSkills[typeId] = [null,null,null,null,null];
+    for (var i = 0; i < 5; i++) {
+      if (profile.boundSkills[typeId][i] == null) {
+        profile.boundSkills[typeId][i] = id;
+        break;
+      }
+    }
+    saveProfile();
+    return true;
+  }
+  function getBoundKeyFor(typeId, id) {
+    var arr = profile.boundSkills && profile.boundSkills[typeId];
+    if (!Array.isArray(arr)) return null;
+    var i = arr.indexOf(id);
+    return i === -1 ? null : SKILL_KEYS[i];
+  }
   // Per-type body proportions for silhouette differentiation
   function bodyProps(typeId) {
     switch (typeId) {
@@ -2120,7 +2217,12 @@
             totalDamageDealt: (p.stats && p.stats.totalDamageDealt) || 0,
             maxDamageSingleMatch: (p.stats && p.stats.maxDamageSingleMatch) || 0,
             counters: (p.stats && p.stats.counters) || 0
-          }
+          },
+          xp: typeof p.xp === 'number' ? p.xp : 0,
+          level: typeof p.level === 'number' ? p.level : 1,
+          skillPoints: typeof p.skillPoints === 'number' ? p.skillPoints : 0,
+          unlockedSkills: (p.unlockedSkills && typeof p.unlockedSkills === 'object') ? p.unlockedSkills : { knight:[], wizard:[], ranger:[], necromancer:[], samurai:[], barbarian:[] },
+          boundSkills: (p.boundSkills && typeof p.boundSkills === 'object') ? p.boundSkills : { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] }
         };
       }
     } catch (e) {}
@@ -2132,8 +2234,36 @@
       classWins: { knight: 0, wizard: 0, ranger: 0, necromancer: 0, samurai: 0, barbarian: 0 },
       perfectWins: 0, maxStreakEver: 0, survivalBest: 0,
       daily: { date: '', challenges: [], streakDays: 0, lastClaimDate: '' },
-      stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0, totalCoinsEarned: 0, totalDamageDealt: 0, maxDamageSingleMatch: 0, counters: 0 }
+      stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0, totalCoinsEarned: 0, totalDamageDealt: 0, maxDamageSingleMatch: 0, counters: 0 },
+      xp: 0, level: 1, skillPoints: 0,
+      unlockedSkills: { knight:[], wizard:[], ranger:[], necromancer:[], samurai:[], barbarian:[] },
+      boundSkills: { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] }
     };
+  }
+
+  // ---------- XP / Levels ----------
+  function xpForLevel(n) { return 100 * n; }       // XP needed to GO FROM (n-1) -> n; cumulative would be sum(1..n)*100
+  function totalXpForLevel(n) { return 100 * n * (n + 1) / 2; } // cumulative XP at start of level n+1
+  var xpToastQueue = [];
+  function awardXp(amount, reason) {
+    if (!amount || amount <= 0) return;
+    profile.xp = (profile.xp || 0) + amount;
+    xpToastQueue.push({ text: '+' + amount + ' XP', born: performance.now() });
+    var leveled = false;
+    while (profile.xp >= totalXpForLevel(profile.level)) {
+      profile.level += 1;
+      profile.skillPoints = (profile.skillPoints || 0) + 1;
+      xpToastQueue.push({ text: 'LEVEL UP! Lv.' + profile.level + '  (+1 SP)', born: performance.now() + 300, big: true });
+      leveled = true;
+    }
+    saveProfile();
+    return leveled;
+  }
+  function xpProgressInLevel() {
+    var floor = totalXpForLevel(profile.level - 1);
+    var needForNext = totalXpForLevel(profile.level) - floor;
+    var have = (profile.xp || 0) - floor;
+    return { have: have, need: needForNext, ratio: have / needForNext };
   }
 
   function makeFriendCode() {
@@ -2183,6 +2313,7 @@
       wins: s.wins || 0,
       survival: profile.survivalBest || 0,
       streak: profile.maxStreakEver || 0,
+      level: profile.level || 1,
       isUser: true
     }];
   }
@@ -2688,7 +2819,7 @@
     net.connected = true;
     // Send greeting with username + skin (host also includes arena)
     setTimeout(function () {
-      var hello = { type: 'hello', name: profile.username, skin: profile.skin };
+      var hello = { type: 'hello', name: profile.username, skin: profile.skin, level: profile.level || 1 };
       if (net.isHost && currentArena) hello.arena = currentArena.id;
       netSend(hello);
     }, 50);
@@ -2811,10 +2942,12 @@
     if (msg.type === 'hello') {
       net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
       net.opponentSkin = msg.skin || 'knight';
+      net.opponentLevel = (typeof msg.level === 'number') ? msg.level : 1;
       if (msg.arena) net.opponentArena = msg.arena;
       if (enemy) {
         enemy.username = net.opponentName;
         enemy.skin = getSkin(net.opponentSkin);
+        enemy.level = net.opponentLevel;
       }
       return;
     }
@@ -2912,9 +3045,11 @@
       case 'hello':
         net.opponentName = String(msg.name || 'RIVAL').slice(0, 14).toUpperCase();
         net.opponentSkin = msg.skin || 'knight';
+        net.opponentLevel = (typeof msg.level === 'number') ? msg.level : 1;
         if (enemy) {
           enemy.username = net.opponentName;
           enemy.skin = getSkin(net.opponentSkin);
+          enemy.level = net.opponentLevel;
         }
         break;
       case 'shield_up':
@@ -4064,6 +4199,11 @@
       if (e.code === 'KeyD' || e.code === 'ArrowRight') { e.preventDefault(); wandererInput.right = true; return; }
       if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); wandererInput.jump = true; return; }
       if (e.code === 'KeyZ') { e.preventDefault(); tryWandererAttack(); return; }
+      if (e.code === 'KeyQ') { e.preventDefault(); tryCastSkill(0); return; }
+      if (e.code === 'KeyE') { e.preventDefault(); tryCastSkill(1); return; }
+      if (e.code === 'KeyR') { e.preventDefault(); tryCastSkill(2); return; }
+      if (e.code === 'KeyF') { e.preventDefault(); tryCastSkill(3); return; }
+      if (e.code === 'KeyG') { e.preventDefault(); tryCastSkill(4); return; }
     }
     if (e.code === 'KeyZ' || e.code === 'Space') {
       if (holdState.swordKey) return;
@@ -5983,8 +6123,10 @@
   function drawHud(now) {
     if (gameMode !== 'tutorial') {
       var barW = Math.min(cssW * 0.4, 320);
-      var youLabel = (gameMode === 'online') ? (profile.username || 'YOU') : 'YOU';
-      var rivalLabel = (gameMode === 'online') ? (enemy.username || net.opponentName || 'RIVAL') : 'AI';
+      var youBase = (gameMode === 'online') ? (profile.username || 'YOU') : 'YOU';
+      var youLabel = youBase + '  Lv.' + (profile.level || 1);
+      var rivalBase = (gameMode === 'online') ? (enemy.username || net.opponentName || 'RIVAL') : 'AI';
+      var rivalLabel = (gameMode === 'online' && enemy && enemy.level) ? (rivalBase + '  Lv.' + enemy.level) : rivalBase;
       drawHpBar(20, 20, barW, 22, player.hp / (player.maxHp || MAX_HP), '#4dd6ff', youLabel, false);
       drawHpBar(cssW - 20 - barW, 20, barW, 22, enemy.hp / (enemy.maxHp || MAX_HP), '#ff5d7e', rivalLabel, true);
       drawStreakDots(20, 50, player.parryStreak, '#fff', false);
@@ -6088,6 +6230,40 @@
       drawMenuDuel(now);
     }
     if (gameState === STATE_PLAYING && gameMode !== 'wanderer') drawHud(now);
+    drawXpToasts(now);
+    ctx.restore();
+  }
+
+  function drawXpToasts(now) {
+    if (!xpToastQueue.length) return;
+    var TOAST_LIFE = 1700;
+    // Drop expired
+    xpToastQueue = xpToastQueue.filter(function (t) { return now - t.born < TOAST_LIFE; });
+    if (!xpToastQueue.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var baseY = cssH * 0.35;
+    xpToastQueue.forEach(function (t, i) {
+      var age = now - t.born;
+      if (age < 0) return;
+      var p = age / TOAST_LIFE;
+      var alpha = p < 0.15 ? p / 0.15 : (p > 0.7 ? (1 - p) / 0.3 : 1);
+      var rise = -p * 30;
+      var y = baseY + i * 30 + rise;
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+      if (t.big) {
+        ctx.fillStyle = '#ffd34d';
+        ctx.font = '900 28px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.shadowColor = 'rgba(255,180,0,0.8)'; ctx.shadowBlur = 12;
+      } else {
+        ctx.fillStyle = '#9ed4ff';
+        ctx.font = '900 16px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+        ctx.shadowColor = 'rgba(120,180,255,0.6)'; ctx.shadowBlur = 6;
+      }
+      ctx.fillText(t.text, cssW / 2, y);
+      ctx.shadowBlur = 0;
+    });
     ctx.restore();
   }
 
@@ -6194,9 +6370,16 @@
     renderBadge(badge, rank);
     var label = rank.divisions > 1 ? rank.name + ' ' + divisionRoman(rank.division) : rank.name;
     name.textContent = label;
-    usernameEl.textContent = profile.username;
+    usernameEl.textContent = profile.username + '  ·  Lv. ' + (profile.level || 1);
     var coinEl = document.getElementById('modeCoinBal');
     if (coinEl) coinEl.textContent = profile.coins;
+    var spEl = document.getElementById('modeSpBal');
+    if (spEl) spEl.textContent = (profile.skillPoints || 0) + ' SP';
+    var xpEl = document.getElementById('modeXp');
+    if (xpEl) {
+      var prog = xpProgressInLevel();
+      xpEl.textContent = prog.have + ' / ' + prog.need + ' XP';
+    }
     if (rank.isMax) {
       rp.textContent = profile.rp + ' RP — MAX TIER';
       fill.style.width = '100%';
@@ -6206,7 +6389,11 @@
     }
     career.innerHTML = '';
     var s = profile.stats;
+    var prog2 = xpProgressInLevel();
     var parts = [
+      'Lv. ' + (profile.level || 1),
+      prog2.have + '/' + prog2.need + ' XP',
+      (profile.skillPoints || 0) + ' SP',
       s.matches + ' MATCHES',
       s.wins + ' WINS',
       s.parries + ' PARRIES',
@@ -6273,7 +6460,9 @@
   var tutorialFinishTapAt = 0;
 
   function startTutorial() {
+    var firstTime = !profile.tutorialDone;
     profile.tutorialDone = true;
+    if (firstTime) awardXp(50, 'tutorial');
     saveProfile();
     tutorialStep = 0;
     tutorialAttackCount = 0;
@@ -6502,6 +6691,7 @@
       commitMatchStats();
       if (playerWon) profile.stats.wins += 1;
       awarded = awardMatchOutcome(playerWon, gameMode);
+      awardXp(playerWon ? 100 : 30, 'match');
       // Daily challenge tracking
       tickChallenge('matches', 1);
       if (playerWon) {
@@ -6542,6 +6732,8 @@
       }
       tickChallenge('matches', 1);
       if (playerWon) tickChallenge('wins', 1);
+      if (playerWon && survivalState) awardXp(20 * survivalState.wave, 'survival-wave');
+      else awardXp(15, 'survival-end');
       saveProfile();
     } else if (!isTutorial && gameMode === 'campaign' && currentBoss) {
       commitMatchStats();
@@ -6561,6 +6753,8 @@
       }
       tickChallenge('matches', 1);
       if (playerWon) tickChallenge('wins', 1);
+      if (playerWon) awardXp(campaignFirstClear ? 200 : 50, 'campaign-boss');
+      else awardXp(20, 'campaign-attempt');
       saveProfile();
     }
 
@@ -6691,7 +6885,10 @@
   var wandererEnemies = [];            // each: fighter object with wx/wy/vx/vy/onGround
   var wandererPlatforms = [];          // each: { wx, wy, w, h }  (wy is the TOP of platform; ground is wy=0)
   var wandererProjectiles = [];        // each: { wx, wy, vx, vy, dmg, owner, color, type, life }
+  var wandererAoe = [];                // each: { wx, wy, r, maxR, born, life, color, dmg, owner, hits, status, statusDur, kind }
+  var wandererMinions = [];            // ally summons
   var wandererInput = { left: false, right: false, jump: false };
+  var globalTimeScale = 1;             // for FOCUS skill
 
   function startWanderer() {
     gameMode = 'wanderer';
@@ -6707,6 +6904,11 @@
     wandererEnemies = [];
     wandererPlatforms = [];
     wandererProjectiles = [];
+    wandererAoe = [];
+    wandererMinions = [];
+    globalTimeScale = 1;
+    player.skillCooldowns = {};
+    player.activeBuffs = {};
     wandererInput.left = false; wandererInput.right = false; wandererInput.jump = false;
     // Spawn the first section
     wandererSpawnSection(0);
@@ -6760,6 +6962,361 @@
     if (now < player.shieldCooldownUntil) return;
     if (player.shieldUpUntil > now) return;
     raiseShield(player, now);
+  }
+
+  // ---------- Skill cast system (wanderer mode) ----------
+  function tryCastSkill(slotIdx) {
+    if (gameMode !== 'wanderer' || !player || gameState !== STATE_PLAYING) return;
+    if (player.hp <= 0) return;
+    var typeId = (player.skin && player.skin.type) || 'knight';
+    var skillId = profile.boundSkills && profile.boundSkills[typeId] && profile.boundSkills[typeId][slotIdx];
+    if (!skillId) return;
+    var skill = getSkillById(typeId, skillId);
+    if (!skill) return;
+    var now = performance.now();
+    var cd = (player.skillCooldowns && player.skillCooldowns[skill.id]) || 0;
+    if (now < cd) return;
+    player.skillCooldowns[skill.id] = now + skill.cooldown;
+    castSkill(skill, now);
+    addPopup(player, skill.name, '#9ed4ff');
+  }
+
+  function castSkill(skill, now) {
+    switch (skill.family) {
+      case 'projectile': castProjectile(skill, now); break;
+      case 'aoe':        castAoe(skill, now); break;
+      case 'buff':       castBuff(skill, now); break;
+      case 'heal':       castHeal(skill, now); break;
+      case 'mobility':   castMobility(skill, now); break;
+    }
+    // Cast flash
+    addFlash(player, '#9ed4ff', 90);
+  }
+
+  // PROJECTILE family
+  function castProjectile(skill, now) {
+    var face = player.facingDir || 1;
+    var baseX = player.wx + face * 30;
+    var baseY = -player.wy - 50;
+    function spawn(opts) {
+      wandererProjectiles.push(Object.assign({
+        wx: baseX, wy: baseY, vx: face * WANDERER_PROJ_SPEED * 1.1, vy: 0,
+        dmg: 18, owner: 'player', type: skill.id, color: '#9ed4ff', color2: '#fff',
+        life: 2400, facingDir: face, skillId: skill.id, radius: 14
+      }, opts || {}));
+    }
+    switch (skill.id) {
+      case 'fireball':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.9, dmg: 28, color: '#ff8030', color2: '#ffd060', radius: 22, explosive: true, life: 2400 });
+        break;
+      case 'lance_stab':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.6, dmg: 22, color: '#cccccc', color2: '#888', radius: 12, piercing: true, life: 800 });
+        break;
+      case 'multishot':
+        for (var i = -1; i <= 1; i++) {
+          spawn({ vx: face * WANDERER_PROJ_SPEED * 1.0, vy: i * 90, dmg: 12, color: '#aaff80', color2: '#fff', radius: 10 });
+        }
+        break;
+      case 'piercing':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.4, dmg: 16, color: '#fff070', color2: '#fff', radius: 11, piercing: true });
+        break;
+      case 'venom':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 8, color: '#80ff60', color2: '#208030', radius: 11, status: 'poison', statusDur: 4000, statusTickDmg: 3 });
+        break;
+      case 'soulrip':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 15, color: '#c060ff', color2: '#400080', radius: 14, lifesteal: true });
+        break;
+      case 'death_orb':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.55, dmg: 18, color: '#202040', color2: '#8060ff', radius: 18, tracking: true, life: 4000 });
+        break;
+      case 'wind':
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.3, dmg: 16, color: '#cce8ff', color2: '#fff', radius: 16, piercing: true, life: 1400 });
+        break;
+      default:
+        spawn({});
+    }
+  }
+
+  // AOE family
+  function castAoe(skill, now) {
+    var face = player.facingDir || 1;
+    var center = { wx: player.wx, wy: -player.wy - 50 };
+    function ring(opts) {
+      wandererAoe.push(Object.assign({
+        wx: center.wx, wy: center.wy, r: 10, maxR: 120, born: now, life: 600,
+        color: '#9ed4ff', dmg: 20, owner: 'player', hits: [], kind: 'ring'
+      }, opts || {}));
+    }
+    switch (skill.id) {
+      case 'rampart':
+        // static wall: tall thin AoE that blocks projectiles for 5s
+        wandererAoe.push({
+          wx: player.wx + face * 50, wy: -50, r: 0, maxR: 0, born: now, life: 5000,
+          color: '#a0a0a0', dmg: 0, owner: 'player', hits: [], kind: 'wall', wallH: 110, wallW: 14
+        });
+        break;
+      case 'lightning':
+        ring({ color: '#fff080', maxR: 220, life: 500, dmg: 22, kind: 'lightning' });
+        break;
+      case 'frostnova':
+        ring({ color: '#a0e0ff', maxR: 180, life: 500, dmg: 12, status: 'freeze', statusDur: 1500, kind: 'frost' });
+        break;
+      case 'meteor':
+        // delayed crash: spawn telegraph then deal damage when life<200
+        wandererAoe.push({ wx: player.wx + face * 100, wy: -50, r: 0, maxR: 90, born: now, life: 1200,
+          color: '#ff6020', dmg: 40, owner: 'player', hits: [], kind: 'meteor', delay: 700 });
+        break;
+      case 'rain':
+        for (var i = 0; i < 5; i++) {
+          var ox = (i - 2) * 50;
+          wandererAoe.push({ wx: player.wx + face * 60 + ox, wy: -50, r: 0, maxR: 50, born: now + i * 80, life: 800 + i * 80,
+            color: '#a0ff80', dmg: 12, owner: 'player', hits: [], kind: 'rain', delay: 500 });
+        }
+        break;
+      case 'curse':
+        ring({ color: '#80ff80', maxR: 200, life: 450, dmg: 8, status: 'curse', statusDur: 4000, kind: 'curse' });
+        break;
+      case 'whirl':
+        ring({ color: '#ffa040', maxR: 150, life: 700, dmg: 25, kind: 'whirl' });
+        break;
+      case 'roar':
+        ring({ color: '#ffd34d', maxR: 220, life: 500, dmg: 6, status: 'stun', statusDur: 1000, kind: 'roar' });
+        break;
+      default:
+        ring({});
+    }
+  }
+
+  // BUFF family — set timed buffs on player
+  function castBuff(skill, now) {
+    var b = player.activeBuffs;
+    switch (skill.id) {
+      case 'iron_will':
+        b.iron_will = { until: now + 2000, speedMult: 1.3, invuln: true };
+        player.dodgeUntil = Math.max(player.dodgeUntil || 0, now + 2000);
+        break;
+      case 'rage':
+        b.rage = { until: now + 4000, dmgMult: 1.3, speedMult: 1.3 };
+        break;
+      case 'reaper':
+        b.reaper = { until: now + 8000, nextHitMult: 3 };
+        break;
+      case 'final':
+        b.final = { until: now + 5000, conditional: 'lowhp', dmgMult: 1.5 };
+        break;
+      case 'focus':
+        b.focus = { until: now + 2000 };
+        globalTimeScale = 0.45;
+        setTimeout(function () { globalTimeScale = 1; }, 2000);
+        break;
+      case 'minion':
+        // Spawn an ally minion
+        var face = player.facingDir || 1;
+        var skel = makeFighter('player');
+        skel.skin = getSkin('necromancer-skull') || getSkin(profile.skin);
+        skel.wx = player.wx - face * 40; skel.wy = 0; skel.vx = 0; skel.vy = 0;
+        skel.facingDir = face; skel.aggro = true; skel.aiAttackCooldown = 800;
+        skel.minionUntil = now + 8000;
+        skel.maxHp = 40; skel.hp = 40;
+        wandererMinions.push(skel);
+        break;
+      default:
+        b[skill.id] = { until: now + 3000 };
+    }
+  }
+
+  // HEAL family
+  function castHeal(skill, now) {
+    var b = player.activeBuffs;
+    switch (skill.id) {
+      case 'oath':
+        b.oath = { until: now + 3000, healPerSec: 25/3, lastTick: now };
+        break;
+      default:
+        b[skill.id] = { until: now + 3000, healPerSec: 8, lastTick: now };
+    }
+  }
+
+  // MOBILITY family — translate player + i-frames
+  function castMobility(skill, now) {
+    var face = player.facingDir || 1;
+    switch (skill.id) {
+      case 'shield_bash':
+        player.wx += face * 90;
+        player.dodgeUntil = now + 350;
+        // Apply stun to any nearby enemy
+        wandererEnemies.forEach(function (en) {
+          if (en.hp > 0 && Math.abs(en.wx - player.wx) < 70) {
+            en.stunUntil = Math.max(en.stunUntil || 0, now + 500);
+            en.hp = Math.max(0, en.hp - 12);
+            addPopup(en, '-12', '#ffd34d');
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+          }
+        });
+        break;
+      case 'blink':
+        player.wx += face * 220;
+        player.dodgeUntil = now + 250;
+        addFlash(player, '#a0ffff', 130);
+        break;
+      case 'roll':
+        player.wx += face * 120;
+        player.dodgeUntil = now + 500;
+        break;
+      case 'iaido':
+        player.wx += face * 80;
+        player.dodgeUntil = now + 250;
+        wandererEnemies.forEach(function (en) {
+          if (en.hp > 0 && Math.abs(en.wx - player.wx) < 100) {
+            var dmg = 25;
+            en.hp = Math.max(0, en.hp - dmg);
+            addPopup(en, '-' + dmg, '#ff8060');
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+          }
+        });
+        break;
+      case 'dash':
+        player.wx += face * 200;
+        player.dodgeUntil = now + 350;
+        wandererEnemies.forEach(function (en) {
+          if (en.hp > 0 && Math.abs(en.wx - player.wx) < 220 && (face > 0 ? en.wx > player.wx - 220 : en.wx < player.wx + 220)) {
+            var dmg = 18;
+            en.hp = Math.max(0, en.hp - dmg);
+            addPopup(en, '-' + dmg, '#fff080');
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+          }
+        });
+        break;
+      case 'leap':
+        player.vy = WANDERER_JUMP_VEL * 1.3;
+        player.dodgeUntil = now + 400;
+        // Schedule slam: when player.wy returns to 0, ring damage
+        player.activeBuffs.leapPending = { until: now + 2000, slamDmg: 35 };
+        break;
+      case 'execute':
+        // Find nearest low-hp enemy
+        var bestTarget = null, bestD = 9999;
+        wandererEnemies.forEach(function (en) {
+          if (en.hp <= 0) return;
+          var d = Math.abs(en.wx - player.wx);
+          if (d < 380 && d < bestD && en.hp / en.maxHp < 0.5) { bestTarget = en; bestD = d; }
+        });
+        if (bestTarget) {
+          player.wx = bestTarget.wx - face * 30;
+          player.dodgeUntil = now + 300;
+          var dmg = (bestTarget.hp / bestTarget.maxHp) < 0.3 ? 999 : 30;
+          bestTarget.hp = Math.max(0, bestTarget.hp - dmg);
+          addPopup(bestTarget, dmg >= 999 ? 'EXECUTE!' : ('-' + dmg), '#ff3060');
+          if (bestTarget.hp <= 0) wandererOnEnemyKill(bestTarget);
+        } else {
+          player.wx += face * 100;
+        }
+        break;
+    }
+  }
+
+  // Tick AoE rings + buffs (called from tickWanderer)
+  function tickWandererSkills(now, dt) {
+    if (!player) return;
+    // Buffs
+    if (player.activeBuffs) {
+      for (var k in player.activeBuffs) {
+        var b = player.activeBuffs[k];
+        if (now > b.until) {
+          if (k === 'oath' || (b && b.healPerSec)) { /* heal already ticked */ }
+          delete player.activeBuffs[k];
+        } else if (b && b.healPerSec) {
+          var elapsed = now - (b.lastTick || now);
+          if (elapsed > 250) {
+            var amt = b.healPerSec * elapsed / 1000;
+            player.hp = Math.min(player.maxHp || MAX_HP, player.hp + amt);
+            b.lastTick = now;
+          }
+        } else if (k === 'leapPending' && player.wy === 0 && player.vy === 0) {
+          // Land — emit slam ring
+          wandererAoe.push({ wx: player.wx, wy: -50, r: 10, maxR: 160, born: now, life: 500,
+            color: '#ff8030', dmg: b.slamDmg || 30, owner: 'player', hits: [], kind: 'slam' });
+          delete player.activeBuffs[k];
+        }
+      }
+    }
+    // AoE rings
+    for (var i = wandererAoe.length - 1; i >= 0; i--) {
+      var a = wandererAoe[i];
+      var age = now - a.born;
+      if (age < (a.delay || 0)) continue; // wait for telegraph
+      a.r = Math.min(a.maxR, a.r + (a.maxR / Math.max(1, a.life)) * dt);
+      // Damage check (once per enemy)
+      if (a.kind !== 'wall') {
+        wandererEnemies.forEach(function (en) {
+          if (en.hp <= 0) return;
+          if (a.hits.indexOf(en) !== -1) return;
+          var dx = en.wx - a.wx;
+          var dy = (-en.wy - 50) - a.wy;
+          var dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < a.r) {
+            var dmg = a.dmg || 0;
+            // BUFF damage modifiers
+            if (player.activeBuffs && player.activeBuffs.rage) dmg = Math.round(dmg * (player.activeBuffs.rage.dmgMult || 1));
+            if (player.activeBuffs && player.activeBuffs.reaper && player.activeBuffs.reaper.nextHitMult) {
+              dmg = Math.round(dmg * player.activeBuffs.reaper.nextHitMult);
+              delete player.activeBuffs.reaper;
+            }
+            if (dmg > 0) {
+              en.hp = Math.max(0, en.hp - dmg);
+              addPopup(en, '-' + dmg, a.color || '#ffd34d');
+              en.hurtFlash = 1;
+            }
+            if (a.status) en.statusUntil = now + (a.statusDur || 1000);
+            if (a.status === 'stun') en.stunUntil = now + (a.statusDur || 1000);
+            if (a.status === 'freeze') en.frozenUntil = now + (a.statusDur || 1500);
+            if (a.status === 'curse') en.cursedUntil = now + (a.statusDur || 4000);
+            if (a.status === 'poison') {
+              en.poisonUntil = now + (a.statusDur || 4000);
+              en.poisonTick = now + 500;
+              en.poisonDmg = a.statusTickDmg || 3;
+            }
+            a.hits.push(en);
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+          }
+        });
+      }
+      // Despawn
+      if (age > a.life) wandererAoe.splice(i, 1);
+    }
+    // Minions
+    for (var mi = wandererMinions.length - 1; mi >= 0; mi--) {
+      var m = wandererMinions[mi];
+      if (now > m.minionUntil || m.hp <= 0) { wandererMinions.splice(mi, 1); continue; }
+      // Find nearest enemy
+      var target = null, bd = 9999;
+      wandererEnemies.forEach(function (en) {
+        if (en.hp <= 0) return;
+        var d = Math.abs(en.wx - m.wx);
+        if (d < bd) { target = en; bd = d; }
+      });
+      if (target) {
+        m.facingDir = target.wx > m.wx ? 1 : -1;
+        if (bd > 80) m.wx += m.facingDir * WANDERER_WALK_SPEED * 0.7 * dt;
+        m.aiAttackCooldown -= dt;
+        if (bd < 100 && m.aiAttackCooldown <= 0) {
+          target.hp = Math.max(0, target.hp - 6);
+          addPopup(target, '-6', '#c060ff');
+          m.aiAttackCooldown = 800;
+          if (target.hp <= 0) wandererOnEnemyKill(target);
+        }
+      }
+    }
+    // Status ticks on enemies
+    wandererEnemies.forEach(function (en) {
+      if (en.hp <= 0) return;
+      if (en.poisonUntil && now < en.poisonUntil && now > (en.poisonTick || 0)) {
+        en.hp = Math.max(0, en.hp - (en.poisonDmg || 3));
+        addPopup(en, '-' + (en.poisonDmg || 3), '#80ff80');
+        en.poisonTick = now + 500;
+        if (en.hp <= 0) wandererOnEnemyKill(en);
+      }
+    });
   }
 
   function tryWandererAttack() {
@@ -6832,6 +7389,12 @@
       }
     });
 
+    // Tick skills (buffs decay, aoe expand, minions act, statuses)
+    tickWandererSkills(now, dt);
+
+    // Time-scale enemies/projectiles by globalTimeScale (FOCUS skill)
+    var enemyDt = dt * globalTimeScale;
+
     // Movement input
     var moveX = 0;
     if (wandererInput.left)  { moveX -= 1; player.facingDir = -1; }
@@ -6884,27 +7447,32 @@
       var dx = player.wx - e.wx;
       var dist = Math.abs(dx);
       e.facingDir = dx > 0 ? 1 : -1;
+      var frozen = e.frozenUntil && now < e.frozenUntil;
+      var stunned = e.stunUntil && now < e.stunUntil;
       // Aggro state machine
       if (!e.aggro && dist < AGGRO_RANGE) e.aggro = true;
       else if (e.aggro && dist > DEAGGRO_RANGE) e.aggro = false;
       // Movement: only chase when aggro'd, AND only when player is far enough that we want to close
-      if (e.aggro && dist > 110) {
+      if (frozen || stunned) {
+        e.vx = 0;
+      } else if (e.aggro && dist > 110) {
         e.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7;
       } else {
         e.vx = 0;
       }
-      e.vy += WANDERER_GRAVITY * dt;
-      e.wx += e.vx * dt;
-      e.wy -= e.vy * dt;
+      e.vy += WANDERER_GRAVITY * enemyDt;
+      e.wx += e.vx * enemyDt;
+      e.wy -= e.vy * enemyDt;
       if (e.wy <= 0) { e.wy = 0; e.vy = 0; }
-      // Enemy attacks ONLY when aggro'd, in range, and cooldown elapsed
-      e.aiAttackCooldown -= dt;
-      if (e.aggro && dist < ATTACK_RANGE && e.aiAttackCooldown <= 0) {
+      // Enemy attacks ONLY when aggro'd, in range, and cooldown elapsed (and not frozen/stunned)
+      if (!frozen && !stunned) e.aiAttackCooldown -= enemyDt;
+      if (e.aggro && dist < ATTACK_RANGE && e.aiAttackCooldown <= 0 && !frozen && !stunned) {
         var ews = (e.skin && e.skin.weaponStyle) || 'sword';
+        var enemyDmg = (e.cursedUntil && now < e.cursedUntil) ? 3 : 6;
         wandererProjectiles.push({
           wx: e.wx + e.facingDir * 30, wy: -e.wy - 50,
           vx: e.facingDir * WANDERER_PROJ_SPEED * 0.85,
-          vy: 0, dmg: 6, owner: 'enemy', type: ews,
+          vy: 0, dmg: enemyDmg, owner: 'enemy', type: ews,
           color: (e.skin && e.skin.swordBlade) || '#ff5050',
           color2: (e.skin && e.skin.swordPommel) || '#cc1010',
           life: 2200, facingDir: e.facingDir
@@ -6921,38 +7489,102 @@
     if (player.phase === 'strike' && now - player.phaseStart > 200) player.phase = 'idle';
 
     // Tick projectiles
+    var rageMult = (player.activeBuffs && player.activeBuffs.rage) ? (player.activeBuffs.rage.dmgMult || 1) : 1;
     for (var pi = wandererProjectiles.length - 1; pi >= 0; pi--) {
       var pr = wandererProjectiles[pi];
-      pr.wx += pr.vx * dt;
-      pr.wy += pr.vy * dt;
-      pr.life -= dt;
+      // Tracking projectiles steer toward nearest enemy
+      if (pr.tracking && pr.owner === 'player') {
+        var bestEn = null, bestDD = 9999;
+        for (var ti = 0; ti < wandererEnemies.length; ti++) {
+          var te = wandererEnemies[ti];
+          if (te.hp <= 0) continue;
+          var ddx = te.wx - pr.wx, ddy = (-te.wy - 50) - pr.wy;
+          var ddd = Math.sqrt(ddx*ddx + ddy*ddy);
+          if (ddd < bestDD) { bestDD = ddd; bestEn = te; }
+        }
+        if (bestEn) {
+          var tdx = bestEn.wx - pr.wx, tdy = (-bestEn.wy - 50) - pr.wy;
+          var tlen = Math.sqrt(tdx*tdx + tdy*tdy) || 1;
+          var spd = Math.sqrt(pr.vx*pr.vx + pr.vy*pr.vy) || (WANDERER_PROJ_SPEED * 0.6);
+          // Steer 12% toward target
+          pr.vx = pr.vx * 0.88 + (tdx / tlen * spd) * 0.12;
+          pr.vy = pr.vy * 0.88 + (tdy / tlen * spd) * 0.12;
+        }
+      }
+      var moveDt = (pr.owner === 'enemy') ? (dt * globalTimeScale) : dt;
+      pr.wx += pr.vx * moveDt;
+      pr.wy += pr.vy * moveDt;
+      pr.life -= moveDt;
       // Off-screen / expired
-      if (pr.life <= 0 || pr.wx - wandererState.camX < -100 || pr.wx - wandererState.camX > cssW + 100) {
+      if (pr.life <= 0 || pr.wx - wandererState.camX < -100 || pr.wx - wandererState.camX > cssW + 200) {
         wandererProjectiles.splice(pi, 1);
         continue;
       }
-      // Player projectile vs enemies
-      if (pr.owner === 'player') {
-        for (var k = 0; k < wandererEnemies.length; k++) {
-          var en = wandererEnemies[k];
-          if (en.hp <= 0) continue;
-          var enScreenY = -en.wy - 50;
-          if (Math.abs(pr.wx - en.wx) < 30 && Math.abs(pr.wy - enScreenY) < 40) {
-            en.hp = Math.max(0, en.hp - pr.dmg);
-            en.hurtFlash = 1;
-            addPopup(en, '-' + pr.dmg, '#ff7070');
-            playHit();
+      // Wall AoEs block enemy projectiles
+      if (pr.owner === 'enemy') {
+        var blocked = false;
+        for (var wi = 0; wi < wandererAoe.length; wi++) {
+          var aw = wandererAoe[wi];
+          if (aw.kind !== 'wall') continue;
+          if (Math.abs(pr.wx - aw.wx) < (aw.wallW || 14) / 2 + 8) {
+            blocked = true;
+            addPopup(player, 'WALL', '#cccccc');
             wandererProjectiles.splice(pi, 1);
-            if (en.hp <= 0) wandererOnEnemyKill(en);
             break;
           }
         }
+        if (blocked) continue;
+      }
+      // Player projectile vs enemies
+      if (pr.owner === 'player') {
+        if (!pr.hits) pr.hits = [];
+        var hitOne = false;
+        for (var k = 0; k < wandererEnemies.length; k++) {
+          var en = wandererEnemies[k];
+          if (en.hp <= 0) continue;
+          if (pr.hits.indexOf(en) !== -1) continue;
+          var enScreenY = -en.wy - 50;
+          var hitR = pr.radius || 22;
+          if (Math.abs(pr.wx - en.wx) < hitR + 6 && Math.abs(pr.wy - enScreenY) < hitR + 14) {
+            var dmg = Math.round(pr.dmg * rageMult);
+            // REAPER MARK consumes on next damaging hit
+            if (player.activeBuffs && player.activeBuffs.reaper && player.activeBuffs.reaper.nextHitMult) {
+              dmg = Math.round(dmg * player.activeBuffs.reaper.nextHitMult);
+              delete player.activeBuffs.reaper;
+            }
+            en.hp = Math.max(0, en.hp - dmg);
+            en.hurtFlash = 1;
+            addPopup(en, '-' + dmg, '#ff7070');
+            playHit();
+            // Status from projectile
+            if (pr.status === 'poison') {
+              en.poisonUntil = now + (pr.statusDur || 4000);
+              en.poisonTick = now + 500;
+              en.poisonDmg = pr.statusTickDmg || 3;
+            }
+            // Lifesteal
+            if (pr.lifesteal) player.hp = Math.min(player.maxHp || MAX_HP, player.hp + Math.round(dmg * 0.5));
+            // Explosive
+            if (pr.explosive) {
+              wandererAoe.push({ wx: pr.wx, wy: pr.wy, r: 10, maxR: 90, born: now, life: 350,
+                color: '#ff8030', dmg: Math.round(pr.dmg * 0.6 * rageMult), owner: 'player', hits: [], kind: 'explode' });
+            }
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+            pr.hits.push(en);
+            hitOne = true;
+            if (!pr.piercing) break;
+          }
+        }
+        if (hitOne && !pr.piercing) wandererProjectiles.splice(pi, 1);
       } else {
         // Enemy projectile vs player
         var pScreenY = -player.wy - 50;
         if (Math.abs(pr.wx - player.wx) < 30 && Math.abs(pr.wy - pScreenY) < 40) {
-          // Shield blocks!
-          if (player.shieldUpUntil > now) {
+          // Iron will / dodge i-frames
+          if (player.dodgeUntil > now) {
+            addPopup(player, 'DODGE', '#a0e8ff');
+            wandererProjectiles.splice(pi, 1);
+          } else if (player.shieldUpUntil > now) {
             addPopup(player, 'BLOCK', '#ffd34d');
             playClang();
             shake = Math.max(shake, 6);
@@ -6996,6 +7628,7 @@
     profile.coins += WANDERER_REWARD_PER_KILL;
     profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned || 0) + WANDERER_REWARD_PER_KILL;
     addPopup(en, '+' + WANDERER_REWARD_PER_KILL + ' 🪙', '#ffd34d');
+    awardXp(25, 'wanderer-kill');
     saveProfile();
   }
 
@@ -7065,9 +7698,75 @@
       ctx.fillRect(sx - 24, sy, 48, 5);
       ctx.fillStyle = '#ff5d7e';
       ctx.fillRect(sx - 24, sy, 48 * (en.hp / en.maxHp), 5);
+      // Status icons
+      var sIcons = '';
+      if (en.frozenUntil && now < en.frozenUntil) sIcons += '❄️';
+      if (en.poisonUntil && now < en.poisonUntil) sIcons += '🟢';
+      if (en.cursedUntil && now < en.cursedUntil) sIcons += '🦴';
+      if (en.stunUntil && now < en.stunUntil) sIcons += '💫';
+      if (sIcons) {
+        ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(sIcons, sx, sy - 12);
+      }
     });
+    // Minions (allies)
+    wandererMinions.forEach(function (m) { if (m.hp > 0) drawFighter(m, now); });
     // Player
     drawFighter(player, now);
+    // Buff glow on player
+    if (player.activeBuffs) {
+      var pSx = player.wx - camX, pSy = groundScreenY - player.wy - 60;
+      var glowAlpha = 0;
+      var glowColor = '120,180,255';
+      if (player.activeBuffs.iron_will) { glowAlpha = 0.5; glowColor = '120,180,255'; }
+      if (player.activeBuffs.rage)      { glowAlpha = 0.5; glowColor = '255,80,30'; }
+      if (player.activeBuffs.reaper)    { glowAlpha = 0.45; glowColor = '180,80,255'; }
+      if (player.activeBuffs.focus)     { glowAlpha = 0.5; glowColor = '180,255,255'; }
+      if (player.activeBuffs.oath)      { glowAlpha = 0.45; glowColor = '120,255,160'; }
+      if (glowAlpha > 0) {
+        var gg = ctx.createRadialGradient(pSx, pSy, 8, pSx, pSy, 90);
+        gg.addColorStop(0, 'rgba(' + glowColor + ',' + glowAlpha + ')');
+        gg.addColorStop(1, 'rgba(' + glowColor + ',0)');
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(pSx, pSy, 90, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // AoE rings + walls
+    wandererAoe.forEach(function (a) {
+      var ax = a.wx - camX;
+      var ay = groundScreenY + a.wy;
+      var age = now - a.born;
+      if (age < (a.delay || 0)) {
+        // telegraph
+        ctx.strokeStyle = 'rgba(255,80,30,0.6)';
+        ctx.setLineDash([6, 6]);
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ax, ay, a.maxR, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+      }
+      if (a.kind === 'wall') {
+        var wAlpha = Math.min(1, (a.life - (now - a.born)) / 600);
+        ctx.fillStyle = 'rgba(180,180,180,' + (0.3 + 0.5 * wAlpha) + ')';
+        ctx.fillRect(ax - (a.wallW||14)/2, ay - (a.wallH||110), a.wallW || 14, a.wallH || 110);
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
+        ctx.strokeRect(ax - (a.wallW||14)/2, ay - (a.wallH||110), a.wallW || 14, a.wallH || 110);
+        return;
+      }
+      var prog = Math.max(0, Math.min(1, (now - a.born - (a.delay || 0)) / a.life));
+      ctx.strokeStyle = a.color;
+      ctx.lineWidth = 4 + 6 * (1 - prog);
+      ctx.globalAlpha = 1 - prog;
+      ctx.beginPath(); ctx.arc(ax, ay, a.r, 0, Math.PI * 2); ctx.stroke();
+      // Filled inner glow
+      var ig = ctx.createRadialGradient(ax, ay, 0, ax, ay, a.r);
+      ig.addColorStop(0, a.color);
+      ig.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ig;
+      ctx.globalAlpha = 0.35 * (1 - prog);
+      ctx.beginPath(); ctx.arc(ax, ay, a.r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
     // Projectiles
     wandererProjectiles.forEach(function (pr) {
       var sx = pr.wx - camX;
@@ -7076,7 +7775,58 @@
     });
     // HUD: HP bar + kill count
     var barW = Math.min(cssW * 0.4, 320);
-    drawHpBar(20, 20, barW, 22, player.hp / (player.maxHp || MAX_HP), '#4dd6ff', profile.username || 'YOU', false);
+    drawHpBar(20, 20, barW, 22, player.hp / (player.maxHp || MAX_HP), '#4dd6ff', (profile.username || 'YOU') + '  Lv.' + (profile.level || 1), false);
+    // XP bar (thin) below HP
+    var prog = xpProgressInLevel();
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    ctx.fillRect(20, 46, barW, 4);
+    ctx.fillStyle = '#9ed4ff';
+    ctx.fillRect(20, 46, barW * Math.max(0, Math.min(1, prog.ratio)), 4);
+    // Skill cooldown HUD: 5 squares below XP bar
+    var typeId = (player.skin && player.skin.type) || 'knight';
+    var bound = (profile.boundSkills && profile.boundSkills[typeId]) || [];
+    var iconSize = 36, iconGap = 6;
+    for (var sk = 0; sk < 5; sk++) {
+      var ix = 20 + sk * (iconSize + iconGap);
+      var iy = 56;
+      var sid = bound[sk];
+      var skillObj = sid ? getSkillById(typeId, sid) : null;
+      // box
+      ctx.fillStyle = sid ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.05)';
+      ctx.fillRect(ix, iy, iconSize, iconSize);
+      ctx.strokeStyle = sid ? 'rgba(158,212,255,0.6)' : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ix + 0.5, iy + 0.5, iconSize - 1, iconSize - 1);
+      if (skillObj) {
+        var cd = (player.skillCooldowns && player.skillCooldowns[skillObj.id]) || 0;
+        var ready = now >= cd;
+        ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.globalAlpha = ready ? 1 : 0.4;
+        ctx.fillStyle = '#fff';
+        ctx.fillText(skillObj.icon || '✦', ix + iconSize/2, iy + iconSize/2 - 3);
+        ctx.globalAlpha = 1;
+        // CD overlay
+        if (!ready) {
+          var rem = cd - now;
+          var p2 = 1 - Math.max(0, Math.min(1, rem / skillObj.cooldown));
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(ix, iy + iconSize * p2, iconSize, iconSize * (1 - p2));
+          ctx.fillStyle = '#fff';
+          ctx.font = '900 11px -apple-system, sans-serif';
+          ctx.fillText((rem / 1000).toFixed(1), ix + iconSize/2, iy + iconSize - 8);
+        }
+        // Key letter
+        ctx.font = '900 9px -apple-system, sans-serif';
+        ctx.fillStyle = '#9ed4ff';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(SKILL_KEYS[sk], ix + 3, iy + 2);
+      } else {
+        ctx.font = '900 10px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(SKILL_KEYS[sk], ix + iconSize/2, iy + iconSize/2);
+      }
+    }
     ctx.fillStyle = '#fff';
     ctx.font = '900 20px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
@@ -7090,7 +7840,7 @@
       ctx.fillStyle = 'rgba(255,255,255,' + fade + ')';
       ctx.font = '700 16px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('WASD to move + jump · Z or tap to fire (in your facing direction)', cssW / 2, cssH - 40);
+      ctx.fillText('WASD move · Click attack · Right-click shield · Q E R F G skills', cssW / 2, cssH - 40);
     }
   }
 
@@ -7318,9 +8068,10 @@
       else if (i === 2) rankClass = ' top3';
       row.className = 'lb-row' + (e.isUser ? ' user' : '') + rankClass;
       var typeShort = (TYPE_LABEL[e.type] || e.type || '').slice(0, 4);
+      var lvlBadge = e.level ? '<span class="lb-lvl">Lv. ' + e.level + '</span>' : '';
       row.innerHTML =
         '<div class="lb-rank">#' + (i + 1) + '</div>' +
-        '<div class="lb-name"><span class="lb-nm">' + (e.isUser ? '⭐ ' : '') + e.name + '</span><span class="lb-type">' + typeShort + '</span></div>' +
+        '<div class="lb-name"><span class="lb-nm">' + (e.isUser ? '⭐ ' : '') + e.name + '</span>' + lvlBadge + '<span class="lb-type">' + typeShort + '</span></div>' +
         '<div class="lb-val">' + metricObj.fmt(e[lbCurrentMetric] || 0) + '</div>';
       listEl.appendChild(row);
       if (e.isUser) {
@@ -7524,6 +8275,78 @@
     renderSkinTabs();
     renderSkinGrid();
     showScreen('skins');
+  }
+
+  // ---------- Skill Tree screen ----------
+  var currentSkillTab = null;
+  function openSkills() {
+    var bal = document.getElementById('skillSpBal');
+    if (bal) bal.textContent = (profile.skillPoints || 0) + ' SP';
+    if (!currentSkillTab) currentSkillTab = (getSkin(profile.skin) || SKINS[0]).type || 'knight';
+    renderSkillTabs();
+    renderSkillGrid();
+    showScreen('skills');
+  }
+  function renderSkillTabs() {
+    var tabsEl = document.getElementById('skillTabs');
+    tabsEl.innerHTML = '';
+    var equippedType = (getSkin(profile.skin) || SKINS[0]).type;
+    TYPE_ORDER.forEach(function (typeId) {
+      var b = document.createElement('button');
+      b.className = 'skin-tab' + (typeId === currentSkillTab ? ' active' : '');
+      b.textContent = TYPE_LABEL[typeId] || typeId;
+      if (typeId === equippedType) {
+        var s = document.createElement('span');
+        s.className = 'star'; s.textContent = '⭐';
+        b.appendChild(s);
+      }
+      b.addEventListener('click', function () {
+        currentSkillTab = typeId;
+        renderSkillTabs();
+        renderSkillGrid();
+      });
+      tabsEl.appendChild(b);
+    });
+    var info = document.getElementById('skillTypeInfo');
+    if (info) {
+      var unlockedCount = ((profile.unlockedSkills || {})[currentSkillTab] || []).length;
+      info.innerHTML = '<div class="type-blurb">' + (TYPE_LABEL[currentSkillTab] || currentSkillTab) +
+        ' — ' + unlockedCount + ' / 5 unlocked</div>';
+    }
+  }
+  function renderSkillGrid() {
+    var grid = document.getElementById('skillGrid');
+    var bal = document.getElementById('skillSpBal');
+    if (bal) bal.textContent = (profile.skillPoints || 0) + ' SP';
+    grid.innerHTML = '';
+    getSkillsForType(currentSkillTab).forEach(function (skill) {
+      var unlocked = isSkillUnlocked(currentSkillTab, skill.id);
+      var key = unlocked ? getBoundKeyFor(currentSkillTab, skill.id) : null;
+      var card = document.createElement('div');
+      card.className = 'skin-card' + (unlocked ? ' equipped' : ' locked');
+      card.style.cursor = unlocked ? 'default' : 'pointer';
+      var statusLine = unlocked
+        ? '<div style="color:#9ed4ff;font-weight:900;font-size:14px">BOUND: ' + (key || '—') + '</div>'
+        : ((profile.skillPoints || 0) >= 1
+            ? '<div style="color:#ffd34d;font-weight:900;font-size:13px">UNLOCK · 1 SP</div>'
+            : '<div style="color:#888;font-weight:700;font-size:12px">Need 1 SP</div>');
+      card.innerHTML =
+        '<div style="font-size:34px;text-align:center;margin:8px 0">' + (skill.icon || '✦') + '</div>' +
+        '<div class="skin-name">' + skill.name + '</div>' +
+        '<div class="skin-tag" style="font-size:11px;color:#bbb;line-height:1.4;min-height:32px;text-align:center;margin:2px 6px">' +
+          skill.desc + '</div>' +
+        '<div style="font-size:10px;color:#888;text-align:center;margin-bottom:4px">CD: ' + (skill.cooldown / 1000).toFixed(1) + 's · ' + skill.family.toUpperCase() + '</div>' +
+        statusLine;
+      if (!unlocked) {
+        card.addEventListener('click', function () {
+          if (unlockSkill(currentSkillTab, skill.id)) {
+            renderSkillTabs();
+            renderSkillGrid();
+          }
+        });
+      }
+      grid.appendChild(card);
+    });
   }
 
   function renderSkinTabs() {
@@ -7797,6 +8620,9 @@
         break;
       case 'open-skins':
         openSkins();
+        break;
+      case 'open-skills':
+        openSkills();
         break;
       case 'open-dailies':
         openDailies();
