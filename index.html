@@ -3698,7 +3698,8 @@
     var groundY = cssH * 0.70;
     // Wanderer mode: fighters live in world coordinates with camera offset
     if (gameMode === 'wanderer' && f.wx !== undefined && wandererState) {
-      return { x: f.wx - wandererState.camX, y: groundY - (f.wy || 0) };
+      // drawFighter renders feet ~42px below p.y; shift up so visual feet land on the platform/ground.
+      return { x: f.wx - wandererState.camX, y: groundY - (f.wy || 0) - 42 };
     }
     var baseX = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
     var facing = f.side === 'player' ? 1 : -1;
@@ -6794,6 +6795,21 @@
   function tickWanderer(now, dt) {
     if (!player || !wandererState || wandererState.gameOver) return;
 
+    // Decay visual states the main update normally handles (we early-return out of it for wanderer)
+    if (player.shieldRaiseT > 0) {
+      var srE = now - (player.shieldRaiseAt || now);
+      player.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_UP_MS);
+    }
+    if (player.hurtFlash > 0) player.hurtFlash = Math.max(0, player.hurtFlash - dt * 0.005);
+    wandererEnemies.forEach(function (en) {
+      if (en.hurtFlash > 0) en.hurtFlash = Math.max(0, en.hurtFlash - dt * 0.005);
+      if (en.shieldRaiseT > 0) {
+        var esrE = now - (en.shieldRaiseAt || now);
+        en.shieldRaiseT = Math.max(0, 1 - esrE / SHIELD_UP_MS);
+      }
+    });
+    if (shake > 0) shake = Math.max(0, shake - dt * 0.06);
+
     // Movement input
     var moveX = 0;
     if (wandererInput.left)  { moveX -= 1; player.facingDir = -1; }
@@ -6989,9 +7005,12 @@
     var camX = wandererState.camX;
     var groundScreenY = cssH * 0.70;
     // Sky background already drawn by drawBg/drawFloor; add horizon line
-    // Draw ground line
+    // Draw ground line — feet land at groundScreenY when wy=0, so dirt starts there
     ctx.fillStyle = '#2a2244';
-    ctx.fillRect(0, groundScreenY + 50, cssW, cssH - groundScreenY);
+    ctx.fillRect(0, groundScreenY, cssW, cssH - groundScreenY);
+    // Bright top edge so the floor reads as solid ground
+    ctx.fillStyle = '#1a0f28';
+    ctx.fillRect(0, groundScreenY, cssW, 3);
     // Distant parallax stripes
     ctx.fillStyle = 'rgba(255,255,255,0.04)';
     for (var i = 0; i < 6; i++) {
