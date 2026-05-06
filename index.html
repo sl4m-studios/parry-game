@@ -1922,6 +1922,17 @@
     if (f && f.skin && TYPE_STATS[f.skin.type]) return TYPE_STATS[f.skin.type];
     return TYPE_STATS.knight;
   }
+  // Per-type body proportions for silhouette differentiation
+  function bodyProps(typeId) {
+    switch (typeId) {
+      case 'wizard':      return { scaleX: 0.88, scaleY: 1.06 }; // narrow + tall
+      case 'ranger':      return { scaleX: 0.93, scaleY: 1.00 }; // lean
+      case 'necromancer': return { scaleX: 0.82, scaleY: 1.10 }; // skeletal + tallest
+      case 'samurai':     return { scaleX: 0.96, scaleY: 1.00 }; // poised
+      case 'barbarian':   return { scaleX: 1.20, scaleY: 0.95 }; // wide + squat
+      default:            return { scaleX: 1.00, scaleY: 1.00 }; // knight baseline
+    }
+  }
   function skinBuff(f) {
     if (f && f.skin && f.skin.buff) return f.skin.buff;
     return {};
@@ -4698,172 +4709,256 @@
   }
 
   function drawAxe(c, s) {
-    // Long wooden haft, big crescent steel head
+    // MASSIVE crescent axe head with back-spike
     // Pommel
     c.fillStyle = s.swordPommel;
-    c.fillRect(-3, -3, 4, 6);
-    // Wooden haft
+    c.fillRect(-4, -4, 5, 8);
+    // Wooden haft — thicker
     c.fillStyle = s.swordGrip;
-    c.fillRect(0, -3, 50, 6);
-    // Wraps
+    c.fillRect(0, -4, 56, 8);
+    // Rope wrap detail
     c.strokeStyle = s.swordGuard;
-    c.lineWidth = 1;
-    [10, 18, 26, 34, 42].forEach(function (x) {
-      c.beginPath(); c.moveTo(x, -3); c.lineTo(x, 3); c.stroke();
+    c.lineWidth = 1.5;
+    [8, 14, 20, 26, 32, 38, 44, 50].forEach(function (x) {
+      c.beginPath(); c.moveTo(x, -4); c.lineTo(x, 4); c.stroke();
     });
-    // Big crescent axe head
-    var grad = c.createLinearGradient(48, -16, 48, 16);
+    // BIG crescent axe head (much wider + taller)
+    var grad = c.createLinearGradient(60, -28, 60, 28);
     grad.addColorStop(0, '#7a8690');
     grad.addColorStop(0.5, s.swordBlade);
     grad.addColorStop(1, '#7a8690');
     c.fillStyle = grad;
     c.beginPath();
-    c.moveTo(44, -3);
-    c.bezierCurveTo(50, -22, 70, -20, 76, -8);
-    c.bezierCurveTo(72, -6, 64, -3, 56, -3);
-    c.lineTo(56, 3);
-    c.bezierCurveTo(64, 3, 72, 6, 76, 8);
-    c.bezierCurveTo(70, 20, 50, 22, 44, 3);
+    c.moveTo(50, -4);
+    c.bezierCurveTo(58, -34, 88, -32, 96, -10);
+    c.bezierCurveTo(90, -8, 78, -4, 64, -4);
+    c.lineTo(64, 4);
+    c.bezierCurveTo(78, 4, 90, 8, 96, 10);
+    c.bezierCurveTo(88, 32, 58, 34, 50, 4);
     c.closePath(); c.fill();
     // Edge highlight
-    c.strokeStyle = 'rgba(255,255,255,0.5)';
-    c.lineWidth = 1;
+    c.strokeStyle = 'rgba(255,255,255,0.6)';
+    c.lineWidth = 1.5;
     c.beginPath();
-    c.moveTo(48, -16); c.bezierCurveTo(60, -18, 70, -14, 74, -8);
-    c.moveTo(48, 16); c.bezierCurveTo(60, 18, 70, 14, 74, 8);
+    c.moveTo(54, -26); c.bezierCurveTo(70, -28, 84, -22, 92, -12);
+    c.moveTo(54, 26); c.bezierCurveTo(70, 28, 84, 22, 92, 12);
     c.stroke();
-    // Iron band on haft near head
+    // Back spike (jagged tooth on opposite side of head)
+    c.fillStyle = grad;
+    c.beginPath();
+    c.moveTo(48, -3);
+    c.lineTo(34, -14);
+    c.lineTo(40, -6);
+    c.lineTo(42, -2);
+    c.closePath(); c.fill();
+    c.beginPath();
+    c.moveTo(48, 3);
+    c.lineTo(34, 14);
+    c.lineTo(40, 6);
+    c.lineTo(42, 2);
+    c.closePath(); c.fill();
+    // Iron band where head meets haft
     c.fillStyle = s.swordGuard;
-    c.fillRect(40, -5, 6, 10);
+    c.fillRect(46, -7, 8, 14);
+    c.strokeStyle = '#1a0a08';
+    c.lineWidth = 1;
+    c.strokeRect(46, -7, 8, 14);
   }
 
   function drawStaff(c, s) {
-    // Wood shaft from hand at (0,0) extending +x
+    // Gnarled wooden shaft with twisted base + bigger glowing orb at tip
     c.strokeStyle = s.swordGrip;
-    c.lineWidth = 5; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(-4, 0); c.lineTo(54, 0); c.stroke();
-    // Wraps
+    c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(-6, 2);
+    c.bezierCurveTo(8, -2, 22, 3, 36, -1);
+    c.lineTo(58, 0);
+    c.stroke();
+    // Wood knot ridges (gnarled detail)
     c.strokeStyle = s.swordGuard;
     c.lineWidth = 1.5;
-    [10, 20, 30, 40].forEach(function (x) {
-      c.beginPath(); c.moveTo(x, -3); c.lineTo(x, 3); c.stroke();
+    [4, 12, 20, 28, 36, 44].forEach(function (x) {
+      c.beginPath();
+      c.moveTo(x, -3); c.lineTo(x + 1, 3);
+      c.stroke();
     });
-    // Glowing orb at tip
-    var grad = c.createRadialGradient(60, 0, 2, 60, 0, 14);
+    // Twisted base wraps
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(0, -3); c.lineTo(2, 3);
+    c.moveTo(2, -3); c.lineTo(4, 3);
+    c.stroke();
+    // Crown of metal claws holding the orb
+    c.strokeStyle = s.swordGuard;
+    c.lineWidth = 2; c.lineCap = 'round';
+    [-1.0, -0.4, 0.4, 1.0].forEach(function (a) {
+      var cx = 60 + Math.cos(a) * 14, cy = Math.sin(a) * 14;
+      c.beginPath();
+      c.moveTo(54, 0); c.lineTo(cx, cy);
+      c.stroke();
+    });
+    // BIGGER glowing orb at tip
+    var grad = c.createRadialGradient(64, 0, 3, 64, 0, 22);
     grad.addColorStop(0, '#fff');
     grad.addColorStop(0.45, s.swordBlade);
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = grad;
-    c.beginPath(); c.arc(60, 0, 14, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(64, 0, 22, 0, Math.PI * 2); c.fill();
     // Inner core
     c.fillStyle = s.swordPommel;
-    c.beginPath(); c.arc(60, 0, 4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(64, 0, 6, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(62, -2, 2, 0, Math.PI * 2); c.fill();
     c.lineCap = 'butt';
   }
 
   function drawBow(c, s) {
-    // Curved bow body
+    // TALL recurve bow with ornate tips, thick grip, longer arrow
     c.strokeStyle = s.swordGuard;
-    c.lineWidth = 3; c.lineCap = 'round';
+    c.lineWidth = 4; c.lineCap = 'round';
     c.beginPath();
-    c.moveTo(0, -28);
-    c.bezierCurveTo(28, -22, 28, 22, 0, 28);
+    c.moveTo(2, -42);
+    c.bezierCurveTo(38, -34, 38, 34, 2, 42);
     c.stroke();
-    // Riser (handle wrap)
+    // Recurve ornaments at tips
+    c.fillStyle = s.swordPommel;
+    c.beginPath();
+    c.moveTo(2, -42); c.lineTo(-2, -46); c.lineTo(6, -44); c.closePath(); c.fill();
+    c.beginPath();
+    c.moveTo(2, 42); c.lineTo(-2, 46); c.lineTo(6, 44); c.closePath(); c.fill();
+    // Riser (handle wrap) — thicker
     c.fillStyle = s.swordGrip;
-    c.fillRect(-3, -10, 6, 20);
-    // String
-    c.strokeStyle = '#dcd0a8';
+    c.fillRect(-4, -14, 8, 28);
+    c.strokeStyle = s.swordGuard;
     c.lineWidth = 1;
+    [-10, -4, 2, 8].forEach(function (y) {
+      c.beginPath(); c.moveTo(-4, y); c.lineTo(4, y); c.stroke();
+    });
+    // Bowstring (drawn back)
+    c.strokeStyle = '#e8dcb0';
+    c.lineWidth = 1.5;
     c.beginPath();
-    c.moveTo(0, -28);
-    c.lineTo(14, 0);
-    c.lineTo(0, 28);
+    c.moveTo(2, -42);
+    c.lineTo(18, 0);
+    c.lineTo(2, 42);
     c.stroke();
-    // Nocked arrow extends along +x
+    // Nocked arrow extends along +x — longer
     c.strokeStyle = s.swordPommel;
-    c.lineWidth = 2;
-    c.beginPath(); c.moveTo(14, 0); c.lineTo(48, 0); c.stroke();
-    // Arrowhead
+    c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(18, 0); c.lineTo(60, 0); c.stroke();
+    // Big arrowhead
     c.fillStyle = s.swordBlade;
     c.beginPath();
-    c.moveTo(48, 0); c.lineTo(42, -4); c.lineTo(56, 0); c.lineTo(42, 4);
+    c.moveTo(60, 0); c.lineTo(50, -6); c.lineTo(72, 0); c.lineTo(50, 6);
     c.closePath(); c.fill();
-    // Fletching
-    c.strokeStyle = s.shieldRim;
-    c.lineWidth = 2;
+    // Edge highlight on arrowhead
+    c.strokeStyle = 'rgba(255,255,255,0.6)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(54, -2); c.lineTo(68, -1); c.stroke();
+    // Fletching feathers — bigger
+    c.fillStyle = s.shieldRim;
     c.beginPath();
-    c.moveTo(14, 0); c.lineTo(20, -4); c.moveTo(14, 0); c.lineTo(20, 4);
-    c.stroke();
+    c.moveTo(18, 0); c.lineTo(26, -6); c.lineTo(28, -2); c.lineTo(20, 0);
+    c.closePath(); c.fill();
+    c.beginPath();
+    c.moveTo(18, 0); c.lineTo(26, 6); c.lineTo(28, 2); c.lineTo(20, 0);
+    c.closePath(); c.fill();
     c.lineCap = 'butt';
   }
 
   function drawScythe(c, s) {
-    // Long shaft
+    // LONG haft + sweeping crescent + tassel hanging from base
     c.strokeStyle = s.swordGrip;
-    c.lineWidth = 5; c.lineCap = 'round';
-    c.beginPath(); c.moveTo(-4, 0); c.lineTo(58, -8); c.stroke();
+    c.lineWidth = 6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-6, 4); c.lineTo(72, -12); c.stroke();
     // Wraps
     c.strokeStyle = s.swordGuard;
     c.lineWidth = 1.5;
-    [12, 24, 36, 48].forEach(function (d) {
+    [10, 20, 30, 40, 50, 60].forEach(function (d) {
+      var ratio = d / 72;
+      var y = lerp(4, -12, ratio);
       c.beginPath();
-      c.moveTo(d, -d * 0.135 - 3); c.lineTo(d, -d * 0.135 + 3);
+      c.moveTo(d, y - 3); c.lineTo(d, y + 3);
       c.stroke();
     });
-    // Curved blade at top
+    // BIG curved scythe blade at top
     c.fillStyle = s.swordBlade;
     c.beginPath();
-    c.moveTo(58, -8);
-    c.bezierCurveTo(60, -22, 28, -34, 14, -28);
-    c.bezierCurveTo(28, -28, 50, -20, 56, -10);
+    c.moveTo(72, -12);
+    c.bezierCurveTo(78, -36, 30, -52, 8, -42);
+    c.bezierCurveTo(30, -40, 58, -28, 70, -14);
     c.closePath(); c.fill();
     // Edge highlight
-    c.strokeStyle = 'rgba(255,255,255,0.5)';
-    c.lineWidth = 1;
+    c.strokeStyle = 'rgba(255,255,255,0.55)';
+    c.lineWidth = 1.5;
     c.beginPath();
-    c.moveTo(58, -10);
-    c.bezierCurveTo(58, -22, 30, -32, 16, -28);
+    c.moveTo(72, -14);
+    c.bezierCurveTo(76, -36, 32, -50, 10, -42);
     c.stroke();
+    // Spike where blade meets haft
+    c.fillStyle = s.swordGuard;
+    c.beginPath();
+    c.moveTo(70, -10); c.lineTo(76, -4); c.lineTo(74, -14);
+    c.closePath(); c.fill();
     // Pommel ornament
     c.fillStyle = s.swordPommel;
-    c.beginPath(); c.arc(-4, 0, 4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(-6, 4, 5, 0, Math.PI * 2); c.fill();
+    // Tassel hanging from base
+    c.strokeStyle = s.shieldRim;
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(-4, 8); c.lineTo(-6, 18);
+    c.moveTo(-2, 8); c.lineTo(-3, 18);
+    c.moveTo(0, 8); c.lineTo(0, 18);
+    c.stroke();
+    c.fillStyle = s.swordPommel;
+    c.beginPath(); c.arc(-3, 18, 3, 0, Math.PI * 2); c.fill();
     c.lineCap = 'butt';
   }
 
   function drawKatana(c, s) {
-    // Pommel
+    // LONG razor-thin curved blade — minimalist + lethal
+    // Pommel — small (samurai aesthetic)
     c.fillStyle = s.swordPommel;
     c.fillRect(-2, -3, 4, 6);
     // Grip wrap pattern
     c.fillStyle = s.swordGrip;
-    c.fillRect(2, -3, 16, 6);
+    c.fillRect(2, -3, 18, 6);
     c.strokeStyle = s.swordGuard;
     c.lineWidth = 1;
-    [4, 8, 12, 16].forEach(function (x) {
+    [4, 9, 14, 19].forEach(function (x) {
       c.beginPath();
       c.moveTo(x, -3); c.lineTo(x + 2, 3);
       c.moveTo(x + 2, -3); c.lineTo(x, 3);
       c.stroke();
     });
-    // Tsuba (small disc guard)
+    // Tsuba (round disc guard) — slightly larger
     c.fillStyle = s.swordGuard;
-    c.beginPath(); c.arc(18, 0, 5, 0, Math.PI * 2); c.fill();
-    // Curved single-edge blade — slight upward curve
+    c.beginPath(); c.arc(20, 0, 6, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#1a0a08'; c.lineWidth = 1; c.stroke();
+    // LONG thin curved single-edge blade
     c.fillStyle = s.swordBlade;
     c.beginPath();
-    c.moveTo(22, -2);
-    c.lineTo(22, 2);
-    c.bezierCurveTo(50, 4, 60, -2, 66, -3);
-    c.lineTo(70, -4);
-    c.bezierCurveTo(60, -4, 40, -3, 22, -2);
+    c.moveTo(26, -2);
+    c.lineTo(26, 2);
+    c.bezierCurveTo(60, 5, 78, -2, 86, -4);
+    c.lineTo(92, -6);
+    c.bezierCurveTo(78, -5, 56, -3, 26, -2);
     c.closePath(); c.fill();
-    // Edge highlight
-    c.strokeStyle = 'rgba(255,255,255,0.7)';
+    // Edge highlight (thin razor edge)
+    c.strokeStyle = 'rgba(255,255,255,0.85)';
     c.lineWidth = 1;
     c.beginPath();
-    c.moveTo(24, -1.5);
-    c.bezierCurveTo(46, 0.5, 58, -3, 64, -3.5);
+    c.moveTo(28, -1.5);
+    c.bezierCurveTo(54, 1, 74, -3, 84, -4.5);
+    c.stroke();
+    // Hi (groove) line on blade
+    c.strokeStyle = 'rgba(0,0,0,0.25)';
+    c.lineWidth = 0.8;
+    c.beginPath();
+    c.moveTo(30, 0);
+    c.bezierCurveTo(54, 2, 72, -1, 82, -3);
     c.stroke();
   }
 
@@ -5007,50 +5102,50 @@
 
   function drawSword(c, s) {
     s = s || SKINS[0];
-    // Anchored at hand (0,0); blade extends along +x
-    // Pommel
+    // Anchored at hand (0,0); blade extends along +x. LONGER + WIDER guard.
+    // Pommel — bigger
     c.fillStyle = s.swordPommel;
     c.beginPath();
-    c.arc(0, 0, 5, 0, Math.PI * 2);
+    c.arc(0, 0, 6, 0, Math.PI * 2);
     c.fill();
     c.strokeStyle = '#5a4520'; c.lineWidth = 1; c.stroke();
     // Grip (wrapped leather)
     c.fillStyle = s.swordGrip;
-    c.fillRect(0, -3.5, 14, 7);
+    c.fillRect(0, -4, 14, 8);
     c.fillStyle = '#1a0e08';
-    for (var i = 0; i < 4; i++) c.fillRect(2 + i * 3, -3.5, 1, 7);
-    // Cross-guard
+    for (var i = 0; i < 4; i++) c.fillRect(2 + i * 3, -4, 1, 8);
+    // Cross-guard — wider
     c.fillStyle = s.swordGuard;
-    c.fillRect(14, -11, 5, 22);
+    c.fillRect(14, -14, 6, 28);
     c.fillStyle = '#7a5e28';
-    c.fillRect(14, 9, 5, 2);
-    // Blade — tapered, gradient
-    var grad = c.createLinearGradient(0, -4, 0, 4);
+    c.fillRect(14, 12, 6, 2);
+    // Blade — longer + tapered with gradient
+    var grad = c.createLinearGradient(0, -5, 0, 5);
     grad.addColorStop(0, '#8a96a0');
     grad.addColorStop(0.5, s.swordBlade);
     grad.addColorStop(1, '#7a8690');
     c.fillStyle = grad;
     c.beginPath();
-    c.moveTo(19, -4);
-    c.lineTo(19, 4);
-    c.lineTo(58, 2);
-    c.lineTo(64, 0);
-    c.lineTo(58, -2);
+    c.moveTo(20, -5);
+    c.lineTo(20, 5);
+    c.lineTo(70, 2);
+    c.lineTo(78, 0);
+    c.lineTo(70, -2);
     c.closePath();
     c.fill();
     // Edge highlight
     c.strokeStyle = 'rgba(255,255,255,0.7)';
     c.lineWidth = 1;
     c.beginPath();
-    c.moveTo(20, -1.5);
-    c.lineTo(58, -1);
+    c.moveTo(22, -2);
+    c.lineTo(70, -1);
     c.stroke();
     // Fuller (groove)
-    c.strokeStyle = 'rgba(0,0,0,0.25)';
+    c.strokeStyle = 'rgba(0,0,0,0.28)';
     c.lineWidth = 1;
     c.beginPath();
-    c.moveTo(22, 0);
-    c.lineTo(56, 0);
+    c.moveTo(24, 0);
+    c.lineTo(68, 0);
     c.stroke();
   }
 
@@ -5197,6 +5292,10 @@
       var rk = f.recoilT;
       ctx.translate(-facing * 8 * rk, -3 * rk);
     }
+
+    // Per-type body proportions (silhouette differentiation)
+    var bodyShape = bodyProps(typeId);
+    ctx.scale(bodyShape.scaleX, bodyShape.scaleY);
 
     // Dodge sidestep — slide back briefly during i-frame
     var inDodge = f.dodgeUntil > now;
