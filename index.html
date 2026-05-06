@@ -319,6 +319,38 @@
   }
   .lb-row.user .lb-lvl { background: rgba(255,211,77,0.2); color: #ffd34d; }
 
+  /* ---------- Mode-screen admin code-entry strip ---------- */
+  .admin-code-strip {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 92%; max-width: 520px; margin: 4px 0;
+    padding: 10px 12px; border-radius: 12px;
+    background: rgba(255,211,77,0.06);
+    border: 1px solid rgba(255,211,77,0.25);
+  }
+  .admin-code-strip .code-label {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: #ffd34d;
+  }
+  .admin-code-strip input.code-input {
+    font: inherit; font-weight: 800; letter-spacing: 0.2em;
+    width: 110px; padding: 6px 10px;
+    background: rgba(0,0,0,0.35); color: #fff;
+    border: 1px solid rgba(255,255,255,0.20); border-radius: 8px;
+    text-align: center;
+  }
+  .admin-code-strip input.code-input:focus {
+    outline: none; border-color: #ffd34d;
+  }
+  .admin-code-strip .code-submit {
+    font: inherit; font-weight: 900; font-size: 12px; letter-spacing: 0.06em;
+    padding: 6px 14px; border: 0; border-radius: 999px;
+    background: #ffd34d; color: #1a1300; cursor: pointer;
+  }
+  .admin-code-strip .code-msg {
+    font-size: 11px; font-weight: 700; min-height: 14px;
+  }
+  .admin-code-strip .code-msg.ok { color: #9ed4ff; }
+  .admin-code-strip .code-msg.bad { color: #ff7a7a; }
+
   /* ---------- Mode-screen "skills beside leaderboard" row ---------- */
   /* gap:0 + flush borders so the two cards visually touch each other. */
   .lb-skills-row {
@@ -860,6 +892,13 @@
       </div>
       <div class="skills-mini-list" id="skillsMiniList"></div>
     </div>
+  </div>
+  <div class="admin-code-strip hidden" id="adminCodeStrip">
+    <span class="code-label">🔑 ADMIN CODE</span>
+    <input type="text" inputmode="numeric" maxlength="6" class="code-input"
+           id="adminCodeInput" placeholder="• • • •" autocomplete="off" />
+    <button type="button" class="code-submit" id="adminCodeSubmit">UNLOCK</button>
+    <span class="code-msg" id="adminCodeMsg"></span>
   </div>
   <div class="arena-row" id="arenaRow"></div>
   <div class="btn-row">
@@ -2416,16 +2455,54 @@
     return true;
   }
   function refreshAdminVisibility() {
-    var btn = document.getElementById('adminMenuBtn');
-    if (!btn) return;
     // Drop a stale admin flag if the profile was renamed away from the admin
     // username — admin should only stick to that specific identity.
     if (profile.isAdmin && !isAdminUsername()) {
       profile.isAdmin = false;
       saveProfile();
     }
-    if (profile.isAdmin) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
+    var btn = document.getElementById('adminMenuBtn');
+    if (btn) {
+      if (profile.isAdmin) btn.classList.remove('hidden');
+      else btn.classList.add('hidden');
+    }
+    // Visible code-entry strip: shown only when admin hasn't been unlocked
+    // yet, hidden once the player has admin.
+    var strip = document.getElementById('adminCodeStrip');
+    if (strip) {
+      if (profile.isAdmin) strip.classList.add('hidden');
+      else strip.classList.remove('hidden');
+    }
+  }
+  function setupAdminCodeStrip() {
+    var input = document.getElementById('adminCodeInput');
+    var btn   = document.getElementById('adminCodeSubmit');
+    var msg   = document.getElementById('adminCodeMsg');
+    if (!input || !btn || !msg) return;
+    if (btn._wired) return;
+    btn._wired = true;
+    function trySubmit() {
+      var v = (input.value || '').trim();
+      if (v !== ADMIN_CODE) {
+        msg.textContent = 'Wrong code';
+        msg.className = 'code-msg bad';
+        return;
+      }
+      if (!isAdminUsername()) {
+        msg.textContent = 'Not the admin profile (' + ADMIN_USERNAME + ')';
+        msg.className = 'code-msg bad';
+        return;
+      }
+      grantAdmin();
+      msg.textContent = 'Admin unlocked';
+      msg.className = 'code-msg ok';
+      input.value = '';
+      refreshAdminVisibility();
+    }
+    btn.addEventListener('click', trySubmit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); trySubmit(); }
+    });
   }
   // URL trigger: #admin OR ?admin=1 — still requires the admin username.
   (function checkAdminURL() {
@@ -8247,6 +8324,7 @@
     renderLeaderboard();
     setupModeSkillsMiniControls();
     renderModeSkillsMini();
+    setupAdminCodeStrip();
     refreshAdminVisibility();
   }
 
