@@ -319,6 +319,63 @@
   }
   .lb-row.user .lb-lvl { background: rgba(255,211,77,0.2); color: #ffd34d; }
 
+  /* ---------- Mode-screen "skills beside leaderboard" row ---------- */
+  .lb-skills-row {
+    display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap;
+    width: 92%; max-width: 980px;
+    align-items: stretch; justify-content: center;
+  }
+  .lb-skills-row > .leaderboard-card,
+  .lb-skills-row > .skills-mini-card {
+    flex: 1 1 320px; width: auto; max-width: none;
+  }
+  .skills-mini-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px; padding: 12px 14px;
+    height: 45vh; max-height: 380px; min-height: 220px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .skills-mini-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .skills-mini-title {
+    font-weight: 900; font-size: 14px; letter-spacing: 0.06em; color: #9ed4ff;
+  }
+  .skills-mini-pager {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .skills-mini-pager .mini-arrow {
+    background: rgba(158,212,255,0.12); color: #fff;
+    border: 1px solid rgba(158,212,255,0.4); border-radius: 6px;
+    width: 26px; height: 26px; font-size: 16px; font-weight: 900; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  .skills-mini-pager .mini-arrow:hover { background: rgba(158,212,255,0.22); }
+  .skills-mini-pager .mini-page-label {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.05em; color: #ddd;
+    min-width: 110px; text-align: center;
+  }
+  .skills-mini-list {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 4px;
+    padding-right: 4px;
+  }
+  .skills-mini-row {
+    display: grid; grid-template-columns: 28px 1fr auto;
+    align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 8px;
+    background: rgba(255,255,255,0.03); font-size: 12px;
+  }
+  .skills-mini-row.unlocked { background: rgba(120,180,255,0.10); }
+  .skills-mini-row.unlocked .mini-status { color: #9ed4ff; font-weight: 900; }
+  .skills-mini-row.lockable { cursor: pointer; }
+  .skills-mini-row.lockable:hover { background: rgba(255,211,77,0.12); }
+  .skills-mini-row .mini-icon { font-size: 18px; text-align: center; }
+  .skills-mini-row .mini-name { font-weight: 800; color: #fff; }
+  .skills-mini-row .mini-status { font-size: 11px; color: #aaa; font-weight: 800; }
+  .skills-mini-row .mini-status.cost { color: #ffd34d; }
+
   /* ---------- Skill Tree pager ---------- */
   .skill-pager-nav {
     display: flex; align-items: center; justify-content: space-between;
@@ -774,12 +831,25 @@
     <div class="career-stats" id="modeCareer"></div>
     <div class="mode-note">VS Player matches affect your rank. VS AI is unranked practice.</div>
   </div>
-  <div class="leaderboard-card" id="leaderboardCard">
-    <div class="lb-header">
-      <span class="lb-title">🏆 LEADERBOARD</span>
-      <div class="lb-tabs" id="lbTabs"></div>
+  <div class="lb-skills-row">
+    <div class="leaderboard-card" id="leaderboardCard">
+      <div class="lb-header">
+        <span class="lb-title">🏆 LEADERBOARD</span>
+        <div class="lb-tabs" id="lbTabs"></div>
+      </div>
+      <div class="lb-list" id="lbList"></div>
     </div>
-    <div class="lb-list" id="lbList"></div>
+    <div class="skills-mini-card" id="skillsMiniCard">
+      <div class="skills-mini-head">
+        <span class="skills-mini-title">🌳 SKILLS</span>
+        <div class="skills-mini-pager">
+          <button type="button" class="mini-arrow" id="modeSkillPrev" aria-label="Previous page">‹</button>
+          <span class="mini-page-label" id="modeSkillPageLabel">—</span>
+          <button type="button" class="mini-arrow" id="modeSkillNext" aria-label="Next page">›</button>
+        </div>
+      </div>
+      <div class="skills-mini-list" id="skillsMiniList"></div>
+    </div>
   </div>
   <div class="arena-row" id="arenaRow"></div>
   <div class="btn-row">
@@ -2320,41 +2390,61 @@
 
   // ---------- Admin / cheats ----------
   var cheats = { godMode: false, oneShot: false, infiniteSkillCd: false };
+  // Hardcoded admin player. Code unlock only works for this username so a
+  // shared link / shared keyboard combo doesn't accidentally promote someone
+  // else's profile.
+  var ADMIN_USERNAME = 'lilboy';
+  function isAdminUsername() {
+    return (profile.username || '').toLowerCase() === ADMIN_USERNAME;
+  }
   function grantAdmin() {
+    if (!isAdminUsername()) return false;
     profile.isAdmin = true;
     saveProfile();
     var btn = document.getElementById('adminMenuBtn');
     if (btn) btn.classList.remove('hidden');
+    return true;
   }
   function refreshAdminVisibility() {
     var btn = document.getElementById('adminMenuBtn');
     if (!btn) return;
+    // Drop a stale admin flag if the profile was renamed away from the admin
+    // username — admin should only stick to that specific identity.
+    if (profile.isAdmin && !isAdminUsername()) {
+      profile.isAdmin = false;
+      saveProfile();
+    }
     if (profile.isAdmin) btn.classList.remove('hidden');
     else btn.classList.add('hidden');
   }
-  // URL trigger: #admin OR ?admin=1 unlocks admin permanently
+  // URL trigger: #admin OR ?admin=1 — still requires the admin username.
   (function checkAdminURL() {
     try {
       var h = (location.hash || '').toLowerCase();
       var s = (location.search || '').toLowerCase();
       if (h.indexOf('admin') !== -1 || s.indexOf('admin=1') !== -1) {
-        if (!profile.isAdmin) {
+        if (!profile.isAdmin && isAdminUsername()) {
           profile.isAdmin = true;
           saveProfile();
         }
       }
     } catch (e) {}
   })();
-  // Konami-ish keyboard trigger: type "admin"
+  // Code-entry trigger: type 6767 anywhere. Only the admin username gets in;
+  // anyone else sees an "access denied" toast so they know the code worked
+  // but isn't for them.
   (function () {
     var buf = '';
     window.addEventListener('keydown', function (e) {
-      if (e.key && e.key.length === 1) {
-        buf = (buf + e.key.toLowerCase()).slice(-8);
-        if (buf.endsWith('admin') && !profile.isAdmin) {
-          grantAdmin();
+      if (!e.key || e.key.length !== 1) return;
+      buf = (buf + e.key).slice(-8);
+      if (buf.endsWith('6767') && !profile.isAdmin) {
+        if (grantAdmin()) {
           alert('🛠️ Admin unlocked. Open the ADMIN button on the mode menu.');
+        } else {
+          alert('Access denied — admin is only for the "' + ADMIN_USERNAME + '" profile.');
         }
+        buf = '';
       }
     });
   })();
@@ -8144,7 +8234,63 @@
     refreshDailiesIfNeeded();
     startModeCharLoop();
     renderLeaderboard();
+    setupModeSkillsMiniControls();
+    renderModeSkillsMini();
     refreshAdminVisibility();
+  }
+
+  // ---------- Skills widget beside leaderboard (mode screen) ----------
+  // Compact paginated skills panel that mirrors skillPageIdx so flipping a
+  // page here also flips it on the full SKILL TREE screen.
+  function setupModeSkillsMiniControls() {
+    var prev = document.getElementById('modeSkillPrev');
+    var next = document.getElementById('modeSkillNext');
+    if (prev && !prev._wired) {
+      prev._wired = true;
+      prev.addEventListener('click', function () { changeSkillPage(-1); });
+    }
+    if (next && !next._wired) {
+      next._wired = true;
+      next.addEventListener('click', function () { changeSkillPage(1); });
+    }
+  }
+  function renderModeSkillsMini() {
+    var list = document.getElementById('skillsMiniList');
+    var label = document.getElementById('modeSkillPageLabel');
+    if (!list || !label) return;
+    var typeId = currentSkillType();
+    label.textContent = (TYPE_LABEL[typeId] || typeId) + ' · ' + (skillPageIdx + 1) + ' / ' + TYPE_ORDER.length;
+    list.innerHTML = '';
+    getSkillsForType(typeId).forEach(function (skill) {
+      var unlocked = isSkillUnlocked(typeId, skill.id);
+      var canAfford = (profile.skillPoints || 0) >= 1;
+      var row = document.createElement('div');
+      row.className = 'skills-mini-row' + (unlocked ? ' unlocked' : (canAfford ? ' lockable' : ''));
+      var statusHtml;
+      if (unlocked) {
+        var key = getBoundKeyFor(typeId, skill.id);
+        statusHtml = '<div class="mini-status">' + (key ? ('[' + key + ']') : 'BOUND') + '</div>';
+      } else if (canAfford) {
+        statusHtml = '<div class="mini-status cost">1 SP</div>';
+      } else {
+        statusHtml = '<div class="mini-status">LOCKED</div>';
+      }
+      row.innerHTML =
+        '<div class="mini-icon">' + (skill.icon || '✦') + '</div>' +
+        '<div class="mini-name">' + skill.name + '</div>' +
+        statusHtml;
+      if (!unlocked && canAfford) {
+        row.addEventListener('click', function () {
+          if (unlockSkill(typeId, skill.id)) {
+            renderModeSkillsMini();
+            // Keep the full skill screen in sync if it happens to be open.
+            var skillScreen = document.querySelector('[data-screen="skills"]');
+            if (skillScreen && !skillScreen.classList.contains('hidden')) renderSkillPage();
+          }
+        });
+      }
+      list.appendChild(row);
+    });
   }
 
   // ---------- Leaderboard render ----------
@@ -8449,6 +8595,9 @@
     var n = TYPE_ORDER.length;
     skillPageIdx = (skillPageIdx + delta + n) % n;
     renderSkillPage();
+    // Mirror to the mode-screen mini widget when it's mounted, so both panels
+    // always agree on the active page.
+    if (document.getElementById('skillsMiniList')) renderModeSkillsMini();
   }
   // Arrow-key page navigation when on skill screen
   window.addEventListener('keydown', function (e) {
