@@ -317,6 +317,40 @@
     font-weight: 800; flex-shrink: 0;
   }
   .lb-row.user .lb-lvl { background: rgba(255,211,77,0.2); color: #ffd34d; }
+
+  /* ---------- Admin panel ---------- */
+  .admin-btn { background: linear-gradient(180deg,#5a1a2a,#2a0810); border-color:#ff5d7e; color:#ffaecb; }
+  .admin-body {
+    display: flex; flex-direction: column; gap: 14px;
+    width: 100%; max-width: 520px; padding: 0 14px 12px;
+    box-sizing: border-box;
+  }
+  .admin-section {
+    background: rgba(255,93,126,0.08);
+    border: 1px solid rgba(255,93,126,0.25);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .admin-section h3 {
+    font-size: 12px; letter-spacing: 0.1em;
+    color: #ff9ab8; margin: 0 0 8px;
+  }
+  .admin-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .admin-btn-mini {
+    background: rgba(255,255,255,0.08); color: #fff;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 6px; padding: 6px 10px; font-size: 12px;
+    font-weight: 800; cursor: pointer; letter-spacing: 0.04em;
+  }
+  .admin-btn-mini:hover { background: rgba(255,255,255,0.14); }
+  .admin-btn-mini.danger { background: rgba(255,80,80,0.15); border-color: rgba(255,120,120,0.4); color: #ffaaaa; }
+  .admin-btn-mini.toggle.on { background: rgba(120,255,160,0.2); border-color: #80ff90; color: #c8ffd8; }
+  .admin-status { font-size: 11px; color: #aaa; margin-top: 6px; }
+  .admin-input {
+    background: rgba(0,0,0,0.4); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 5px;
+    padding: 5px 8px; font-size: 12px; width: 80px;
+  }
   .lb-row .lb-val {
     font-weight: 900; color: #fff; font-variant-numeric: tabular-nums;
   }
@@ -732,6 +766,7 @@
     <button class="btn secondary" data-action="open-skills"><span class="ico">🌳</span>SKILL TREE</button>
     <button class="btn secondary" data-action="open-dailies"><span class="ico">📅</span>DAILIES</button>
     <button class="btn secondary" data-action="open-stats"><span class="ico">📊</span>STATS</button>
+    <button class="btn secondary admin-btn hidden" data-action="open-admin" id="adminMenuBtn"><span class="ico">🛠️</span>ADMIN</button>
   </div>
   <button class="btn ghost" data-action="back-boot">← BACK</button>
 </div>
@@ -783,6 +818,13 @@
   <div class="skin-tabs" id="skinTabs"></div>
   <div id="skinTypeInfo" class="type-info"></div>
   <div class="skin-grid" id="skinGrid"></div>
+  <button class="btn ghost" data-action="back-mode">← BACK</button>
+</div>
+
+<div class="screen hidden" data-screen="admin">
+  <h2 class="subtitle">🛠️ ADMIN PANEL</h2>
+  <p class="lead small">Cheats are persistent. Use responsibly. Or don't.</p>
+  <div id="adminBody" class="admin-body"></div>
   <button class="btn ghost" data-action="back-mode">← BACK</button>
 </div>
 
@@ -2222,7 +2264,8 @@
           level: typeof p.level === 'number' ? p.level : 1,
           skillPoints: typeof p.skillPoints === 'number' ? p.skillPoints : 0,
           unlockedSkills: (p.unlockedSkills && typeof p.unlockedSkills === 'object') ? p.unlockedSkills : { knight:[], wizard:[], ranger:[], necromancer:[], samurai:[], barbarian:[] },
-          boundSkills: (p.boundSkills && typeof p.boundSkills === 'object') ? p.boundSkills : { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] }
+          boundSkills: (p.boundSkills && typeof p.boundSkills === 'object') ? p.boundSkills : { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] },
+          isAdmin: !!p.isAdmin
         };
       }
     } catch (e) {}
@@ -2237,9 +2280,51 @@
       stats: { matches: 0, wins: 0, parries: 0, supers: 0, hitsDealt: 0, hitsTaken: 0, highestRp: 0, totalCoinsEarned: 0, totalDamageDealt: 0, maxDamageSingleMatch: 0, counters: 0 },
       xp: 0, level: 1, skillPoints: 0,
       unlockedSkills: { knight:[], wizard:[], ranger:[], necromancer:[], samurai:[], barbarian:[] },
-      boundSkills: { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] }
+      boundSkills: { knight:[null,null,null,null,null], wizard:[null,null,null,null,null], ranger:[null,null,null,null,null], necromancer:[null,null,null,null,null], samurai:[null,null,null,null,null], barbarian:[null,null,null,null,null] },
+      isAdmin: false
     };
   }
+
+  // ---------- Admin / cheats ----------
+  var cheats = { godMode: false, oneShot: false, infiniteSkillCd: false };
+  function grantAdmin() {
+    profile.isAdmin = true;
+    saveProfile();
+    var btn = document.getElementById('adminMenuBtn');
+    if (btn) btn.classList.remove('hidden');
+  }
+  function refreshAdminVisibility() {
+    var btn = document.getElementById('adminMenuBtn');
+    if (!btn) return;
+    if (profile.isAdmin) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+  }
+  // URL trigger: #admin OR ?admin=1 unlocks admin permanently
+  (function checkAdminURL() {
+    try {
+      var h = (location.hash || '').toLowerCase();
+      var s = (location.search || '').toLowerCase();
+      if (h.indexOf('admin') !== -1 || s.indexOf('admin=1') !== -1) {
+        if (!profile.isAdmin) {
+          profile.isAdmin = true;
+          saveProfile();
+        }
+      }
+    } catch (e) {}
+  })();
+  // Konami-ish keyboard trigger: type "admin"
+  (function () {
+    var buf = '';
+    window.addEventListener('keydown', function (e) {
+      if (e.key && e.key.length === 1) {
+        buf = (buf + e.key.toLowerCase()).slice(-8);
+        if (buf.endsWith('admin') && !profile.isAdmin) {
+          grantAdmin();
+          alert('🛠️ Admin unlocked. Open the ADMIN button on the mode menu.');
+        }
+      }
+    });
+  })();
 
   // ---------- XP / Levels ----------
   function xpForLevel(n) { return 100 * n; }       // XP needed to GO FROM (n-1) -> n; cumulative would be sum(1..n)*100
@@ -3111,6 +3196,7 @@
 
   function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
   function attackDamage(f) {
+    if (cheats.oneShot && f && (f.side === 'player' || f === player)) return 9999;
     var base = lerp(MIN_DAMAGE, MAX_DAMAGE, f.chargeRatio || 0);
     var dmgMult = typeStats(f).dmg * (skinBuff(f).dmgMult || 1);
     if (f.isCounterAttack) dmgMult *= COUNTER_DMG_MULT;
@@ -3724,6 +3810,7 @@
         player.shieldCooldownUntil = now + 1200;
         player.stunUntil = now + SHIELD_BREAK_STUN_MS;
         player.parryStreak = 0;
+        if (cheats.godMode) dmg = 0;
         player.hp = Math.max(0, player.hp - dmg);
         player.hurtFlash = 1;
         player.hitsTaken++;
@@ -3754,6 +3841,7 @@
     }
 
     // Open hit
+    if (cheats.godMode) dmg = 0;
     player.hp = Math.max(0, player.hp - dmg);
     player.hurtFlash = 1;
     player.parryStreak = 0;
@@ -3886,6 +3974,7 @@
       if (f.poisonUntil > now) dot += 1.5;
       if (f.bleedUntil > now) dot += 2;
       if (dot > 0) {
+        if (cheats.godMode && f.side === 'player') dot = 0;
         f.hp = Math.max(0, f.hp - Math.round(dot));
         f.hurtFlash = Math.max(f.hurtFlash, 0.4);
         checkEnd();
@@ -4581,7 +4670,8 @@
           if (!f || f.hp <= 0) return;
           var fx = getFighterPos(f).x;
           if (Math.abs(fx - hz.x) < 60) {
-            f.hp = Math.max(0, f.hp - hz.damage);
+            var hzDmg = (cheats.godMode && f.side === 'player') ? 0 : hz.damage;
+            f.hp = Math.max(0, f.hp - hzDmg);
             f.hurtFlash = 1;
             addPopup(f, 'OUCH', '#ffaa30');
             shake = Math.max(shake, 10);
@@ -6975,8 +7065,8 @@
     if (!skill) return;
     var now = performance.now();
     var cd = (player.skillCooldowns && player.skillCooldowns[skill.id]) || 0;
-    if (now < cd) return;
-    player.skillCooldowns[skill.id] = now + skill.cooldown;
+    if (now < cd && !cheats.infiniteSkillCd) return;
+    player.skillCooldowns[skill.id] = now + (cheats.infiniteSkillCd ? 0 : skill.cooldown);
     castSkill(skill, now);
     addPopup(player, skill.name, '#9ed4ff');
   }
@@ -7552,6 +7642,7 @@
               dmg = Math.round(dmg * player.activeBuffs.reaper.nextHitMult);
               delete player.activeBuffs.reaper;
             }
+            if (cheats.oneShot) dmg = 9999;
             en.hp = Math.max(0, en.hp - dmg);
             en.hurtFlash = 1;
             addPopup(en, '-' + dmg, '#ff7070');
@@ -7588,6 +7679,9 @@
             addPopup(player, 'BLOCK', '#ffd34d');
             playClang();
             shake = Math.max(shake, 6);
+            wandererProjectiles.splice(pi, 1);
+          } else if (cheats.godMode) {
+            addPopup(player, 'GOD', '#ffd34d');
             wandererProjectiles.splice(pi, 1);
           } else {
             player.hp = Math.max(0, player.hp - pr.dmg);
@@ -8017,6 +8111,7 @@
     refreshDailiesIfNeeded();
     startModeCharLoop();
     renderLeaderboard();
+    refreshAdminVisibility();
   }
 
   // ---------- Leaderboard render ----------
@@ -8349,6 +8444,211 @@
     });
   }
 
+  // ---------- Admin panel ----------
+  function openAdmin() {
+    if (!profile.isAdmin) return;
+    renderAdmin();
+    showScreen('admin');
+  }
+  function renderAdmin() {
+    var body = document.getElementById('adminBody');
+    if (!body) return;
+    function btn(label, action, opts) {
+      opts = opts || {};
+      var cls = 'admin-btn-mini';
+      if (opts.danger) cls += ' danger';
+      if (opts.toggle) cls += ' toggle' + (opts.on ? ' on' : '');
+      return '<button class="' + cls + '" data-admin="' + action + '">' + label + '</button>';
+    }
+    var prog = xpProgressInLevel();
+    body.innerHTML =
+      '<div class="admin-section">' +
+        '<h3>PROFILE — Lv.' + (profile.level || 1) + ' · ' + (profile.xp || 0) + ' XP · ' +
+          (profile.skillPoints || 0) + ' SP · ' + (profile.coins || 0) + ' 🪙 · ' + (profile.rp || 0) + ' RP</h3>' +
+        '<div class="admin-status">XP to next: ' + prog.have + ' / ' + prog.need + '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>LEVELS / XP</h3>' +
+        '<div class="admin-row">' +
+          btn('+100 XP', 'xp-100') +
+          btn('+1000 XP', 'xp-1000') +
+          btn('+1 LEVEL', 'lvl-up') +
+          btn('+5 LEVELS', 'lvl-up-5') +
+          btn('+1 SP', 'sp-1') +
+          btn('+10 SP', 'sp-10') +
+          btn('RESET LEVEL', 'lvl-reset', {danger:true}) +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>CURRENCY</h3>' +
+        '<div class="admin-row">' +
+          btn('+1000 🪙', 'coins-1k') +
+          btn('+10K 🪙', 'coins-10k') +
+          btn('+100K 🪙', 'coins-100k') +
+          btn('RESET 🪙', 'coins-reset', {danger:true}) +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>RANK</h3>' +
+        '<div class="admin-row">' +
+          btn('+500 RP', 'rp-500') +
+          btn('+2000 RP', 'rp-2000') +
+          btn('-500 RP', 'rp-neg-500') +
+          btn('SET MAX RANK', 'rp-max') +
+          btn('RESET RANK', 'rp-reset', {danger:true}) +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>SKINS</h3>' +
+        '<div class="admin-row">' +
+          btn('UNLOCK ALL SKINS', 'skins-all') +
+          btn('LOCK ALL SKINS', 'skins-none', {danger:true}) +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>SKILL TREE</h3>' +
+        '<div class="admin-row">' +
+          btn('UNLOCK ALL SKILLS', 'skills-all') +
+          btn('LOCK ALL SKILLS', 'skills-none', {danger:true}) +
+          btn('CLEAR COOLDOWNS', 'skills-cd-reset') +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>CAMPAIGN / SURVIVAL</h3>' +
+        '<div class="admin-row">' +
+          btn('BEAT ALL BOSSES', 'campaign-all') +
+          btn('+10 SURVIVAL BEST', 'survival-best') +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>CHEATS (live)</h3>' +
+        '<div class="admin-row">' +
+          btn('GOD MODE', 'cheat-god', {toggle:true, on:cheats.godMode}) +
+          btn('ONE-SHOT FOES', 'cheat-oneshot', {toggle:true, on:cheats.oneShot}) +
+          btn('NO COOLDOWNS', 'cheat-nocd', {toggle:true, on:cheats.infiniteSkillCd}) +
+        '</div>' +
+        '<div class="admin-status">Effects apply to all combat + Wanderer.</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>WANDERER QUICK</h3>' +
+        '<div class="admin-row">' +
+          btn('KILL ALL ENEMIES', 'wand-killall') +
+          btn('FULL HEAL', 'wand-heal') +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>STATS / DAILIES</h3>' +
+        '<div class="admin-row">' +
+          btn('+100 PARRIES', 'stats-parries') +
+          btn('+50 WINS', 'stats-wins') +
+          btn('REROLL DAILIES', 'daily-reroll') +
+          btn('CLEAR DAILIES', 'daily-claim-all') +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-section">' +
+        '<h3>DANGER ZONE</h3>' +
+        '<div class="admin-row">' +
+          btn('REVOKE ADMIN', 'admin-revoke', {danger:true}) +
+          btn('WIPE PROFILE', 'wipe', {danger:true}) +
+        '</div>' +
+      '</div>';
+    // Wire buttons
+    body.querySelectorAll('[data-admin]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        applyAdminAction(b.getAttribute('data-admin'));
+      });
+    });
+  }
+  function applyAdminAction(act) {
+    if (!profile.isAdmin) return;
+    switch (act) {
+      case 'xp-100':   awardXp(100, 'admin'); break;
+      case 'xp-1000':  awardXp(1000, 'admin'); break;
+      case 'lvl-up':   awardXp(totalXpForLevel(profile.level) - profile.xp + 1, 'admin'); break;
+      case 'lvl-up-5': awardXp(totalXpForLevel(profile.level + 4) - profile.xp + 1, 'admin'); break;
+      case 'sp-1':   profile.skillPoints += 1; break;
+      case 'sp-10':  profile.skillPoints += 10; break;
+      case 'lvl-reset': profile.level = 1; profile.xp = 0; profile.skillPoints = 0; break;
+      case 'coins-1k':   profile.coins += 1000; profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned||0) + 1000; break;
+      case 'coins-10k':  profile.coins += 10000; profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned||0) + 10000; break;
+      case 'coins-100k': profile.coins += 100000; profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned||0) + 100000; break;
+      case 'coins-reset': profile.coins = 0; break;
+      case 'rp-500':     profile.rp = (profile.rp||0) + 500; break;
+      case 'rp-2000':    profile.rp = (profile.rp||0) + 2000; break;
+      case 'rp-neg-500': profile.rp = Math.max(0, (profile.rp||0) - 500); break;
+      case 'rp-max':     profile.rp = 99999; break;
+      case 'rp-reset':   profile.rp = 0; break;
+      case 'skins-all':
+        profile.purchasedSkins = SKINS.map(function (s) { return s.id; });
+        break;
+      case 'skins-none': profile.purchasedSkins = []; break;
+      case 'skills-all':
+        TYPE_ORDER.forEach(function (t) {
+          profile.unlockedSkills[t] = SKILLS[t].map(function (s) { return s.id; });
+          profile.boundSkills[t] = SKILLS[t].slice(0, 5).map(function (s) { return s.id; });
+          while (profile.boundSkills[t].length < 5) profile.boundSkills[t].push(null);
+        });
+        break;
+      case 'skills-none':
+        TYPE_ORDER.forEach(function (t) {
+          profile.unlockedSkills[t] = [];
+          profile.boundSkills[t] = [null,null,null,null,null];
+        });
+        break;
+      case 'skills-cd-reset':
+        if (player) player.skillCooldowns = {};
+        break;
+      case 'campaign-all':
+        profile.campaignBeaten = (CAMPAIGN_BOSSES || []).map(function (b) { return b.id; });
+        break;
+      case 'survival-best': profile.survivalBest = (profile.survivalBest||0) + 10; break;
+      case 'cheat-god':     cheats.godMode = !cheats.godMode; renderAdmin(); break;
+      case 'cheat-oneshot': cheats.oneShot = !cheats.oneShot; renderAdmin(); break;
+      case 'cheat-nocd':    cheats.infiniteSkillCd = !cheats.infiniteSkillCd; renderAdmin(); break;
+      case 'wand-killall':
+        if (gameMode === 'wanderer' && wandererEnemies) {
+          wandererEnemies.forEach(function (en) {
+            if (en.hp > 0) { en.hp = 0; wandererOnEnemyKill(en); }
+          });
+        }
+        break;
+      case 'wand-heal':
+        if (player) { player.hp = player.maxHp || MAX_HP; }
+        break;
+      case 'stats-parries': profile.stats.parries = (profile.stats.parries||0) + 100; break;
+      case 'stats-wins':    profile.stats.wins = (profile.stats.wins||0) + 50; break;
+      case 'daily-reroll':
+        profile.daily = { date: '', challenges: [], streakDays: profile.daily ? profile.daily.streakDays : 0, lastClaimDate: '' };
+        break;
+      case 'daily-claim-all':
+        if (profile.daily && profile.daily.challenges) {
+          profile.daily.challenges.forEach(function (c) { c.progress = c.target; c.claimed = false; });
+        }
+        break;
+      case 'admin-revoke':
+        if (confirm('Disable admin access? You can re-enable by visiting #admin or typing "admin".')) {
+          profile.isAdmin = false;
+          saveProfile();
+          refreshAdminVisibility();
+          showScreen('mode');
+          return;
+        }
+        break;
+      case 'wipe':
+        if (confirm('WIPE ALL PROFILE DATA? This cannot be undone.')) {
+          try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+          location.reload();
+          return;
+        }
+        break;
+    }
+    saveProfile();
+    renderAdmin();
+    // Refresh other panels that might be visible
+    var modeUsername = document.getElementById('modeUsername');
+    if (modeUsername) updateProfile();
+  }
+
   function renderSkinTabs() {
     var tabsEl = document.getElementById('skinTabs');
     tabsEl.innerHTML = '';
@@ -8623,6 +8923,9 @@
         break;
       case 'open-skills':
         openSkills();
+        break;
+      case 'open-admin':
+        if (profile.isAdmin) openAdmin();
         break;
       case 'open-dailies':
         openDailies();
