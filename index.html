@@ -721,6 +721,7 @@
     <button class="btn secondary" data-action="open-campaign"><span class="ico">🏰</span>CAMPAIGN</button>
     <button class="btn secondary" data-action="mode-survival"><span class="ico">💀</span>SURVIVAL</button>
     <button class="btn secondary" data-action="mode-local"><span class="ico">🎮</span>LOCAL 2P</button>
+    <button class="btn secondary" data-action="mode-wanderer"><span class="ico">🌍</span>WANDERER</button>
     <button class="btn secondary" data-action="open-skins"><span class="ico">🎨</span>SKINS</button>
     <button class="btn secondary" data-action="open-dailies"><span class="ico">📅</span>DAILIES</button>
     <button class="btn secondary" data-action="open-stats"><span class="ico">📊</span>STATS</button>
@@ -3695,6 +3696,10 @@
   // ---------- Effects ----------
   function getFighterPos(f) {
     var groundY = cssH * 0.70;
+    // Wanderer mode: fighters live in world coordinates with camera offset
+    if (gameMode === 'wanderer' && f.wx !== undefined && wandererState) {
+      return { x: f.wx - wandererState.camX, y: groundY - (f.wy || 0) };
+    }
     var baseX = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
     var facing = f.side === 'player' ? 1 : -1;
     // Step-back pulls fighter AWAY from center (negative facing direction)
@@ -4021,6 +4026,12 @@
       return;
     }
     if (gameState !== STATE_PLAYING) return;
+    // Wanderer mode: tap right half = attack, tap left half = jump (mobile fallback)
+    if (gameMode === 'wanderer') {
+      if (e.clientX > cssW / 2) tryWandererAttack();
+      else { wandererInput.jump = true; setTimeout(function () { wandererInput.jump = false; }, 100); }
+      return;
+    }
     dispatchByButton(e, true);
   }, { passive: false });
 
@@ -4038,6 +4049,13 @@
 
   window.addEventListener('keydown', function (e) {
     if (gameState !== STATE_PLAYING) return;
+    // Wanderer mode: WASD movement + Z attack (own input gate, runs alongside)
+    if (gameMode === 'wanderer') {
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') { e.preventDefault(); wandererInput.left = true; return; }
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') { e.preventDefault(); wandererInput.right = true; return; }
+      if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); wandererInput.jump = true; return; }
+      if (e.code === 'KeyZ') { e.preventDefault(); tryWandererAttack(); return; }
+    }
     if (e.code === 'KeyZ' || e.code === 'Space') {
       if (holdState.swordKey) return;
       holdState.swordKey = true;
@@ -4075,6 +4093,11 @@
     }
   });
   window.addEventListener('keyup', function (e) {
+    if (gameMode === 'wanderer') {
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') { wandererInput.left = false; return; }
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') { wandererInput.right = false; return; }
+      if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') { wandererInput.jump = false; return; }
+    }
     if (e.code === 'KeyZ' || e.code === 'Space') {
       holdState.swordKey = false;
       onSwordRelease();
@@ -4153,6 +4176,12 @@
   // ---------- Update ----------
   function update(now, dt) {
     if (gameState !== STATE_PLAYING) return;
+
+    // Wanderer mode runs its own update path, then bails out of the normal combat update.
+    if (gameMode === 'wanderer') {
+      tickWanderer(now, dt);
+      return;
+    }
 
     var elapsed = now - matchStartTime;
     if (gameMode !== 'tutorial' && elapsed >= MATCH_TIME_MS) {
@@ -5239,7 +5268,7 @@
 
   function drawFighter(f, now) {
     var p = getFighterPos(f);
-    var facing = f.side === 'player' ? 1 : -1;
+    var facing = (f.facingDir !== undefined) ? f.facingDir : (f.side === 'player' ? 1 : -1);
     var s = f.skin || (f.side === 'player' ? getSkin(profile.skin) : SKINS[1]);
     var baseColor = s.baseColor;
     var darkColor = s.darkColor;
@@ -6025,7 +6054,12 @@
     if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     drawBg(now);
     drawFloor(now);
-    if (gameState === STATE_PLAYING || gameState === STATE_GAMEOVER) {
+    if (gameMode === 'wanderer' && (gameState === STATE_PLAYING || gameState === STATE_GAMEOVER)) {
+      drawWanderer(now);
+      drawSparks();
+      drawFlashes();
+      drawPopups();
+    } else if (gameState === STATE_PLAYING || gameState === STATE_GAMEOVER) {
       drawHazards(now);
       drawPowerup(now);
       drawFighter(enemy, now);
@@ -6038,7 +6072,7 @@
       // Menu screens: ambient duel in background
       drawMenuDuel(now);
     }
-    if (gameState === STATE_PLAYING) drawHud(now);
+    if (gameState === STATE_PLAYING && gameMode !== 'wanderer') drawHud(now);
     ctx.restore();
   }
 
@@ -6627,6 +6661,410 @@
     } catch (e) {
       alert('Snapshot failed: ' + e.message);
     }
+  }
+
+  // ===== WANDERER MODE — side-scrolling platformer =====
+  // Fully isolated from other modes: gated by gameMode === 'wanderer' everywhere.
+  var WANDERER_GRAVITY = 0.0028;       // px / ms^2
+  var WANDERER_JUMP_VEL = -1.05;       // px / ms (negative = up)
+  var WANDERER_WALK_SPEED = 0.36;      // px / ms
+  var WANDERER_PROJ_SPEED = 1.1;       // px / ms (directional projectile velocity)
+  var WANDERER_ENEMY_HP = 30;
+  var WANDERER_REWARD_PER_KILL = 50;
+  var WANDERER_GROUND_Y = 0;           // wy = 0 means on ground
+  var wandererState = null;            // { camX, killed, gameOver, sectionsSpawned, lastSpawnX }
+  var wandererEnemies = [];            // each: fighter object with wx/wy/vx/vy/onGround
+  var wandererPlatforms = [];          // each: { wx, wy, w, h }  (wy is the TOP of platform; ground is wy=0)
+  var wandererProjectiles = [];        // each: { wx, wy, vx, vy, dmg, owner, color, type, life }
+  var wandererInput = { left: false, right: false, jump: false };
+
+  function startWanderer() {
+    gameMode = 'wanderer';
+    player = makeFighter('player');
+    player.skin = getSkin(profile.skin);
+    var pBuff = (player.skin && player.skin.buff) || {};
+    if (pBuff.hpBonus) { player.maxHp = MAX_HP + pBuff.hpBonus; player.hp = player.maxHp; }
+    // Wanderer world fields on player
+    player.wx = 80; player.wy = 0; player.vx = 0; player.vy = 0;
+    player.onGround = true; player.facingDir = 1;
+    enemy = null; // no fixed opponent
+    wandererState = { camX: 0, killed: 0, gameOver: false, sectionsSpawned: 0, lastSpawnX: 0, startedAt: performance.now() };
+    wandererEnemies = [];
+    wandererPlatforms = [];
+    wandererProjectiles = [];
+    wandererInput.left = false; wandererInput.right = false; wandererInput.jump = false;
+    // Spawn the first section
+    wandererSpawnSection(0);
+    // Reset standard match-era state
+    flashes.length = 0; popups.length = 0; sparks.length = 0; projectiles.length = 0;
+    pendingAttackerFallbacks.length = 0;
+    hazards.length = 0; powerup = null;
+    shake = 0; bgFlash = 0; pausedAt = 0;
+    holdState.swordDown = false; holdState.shieldDown = false;
+    holdState.shieldDodgeFired = false; holdState.swordKey = false; holdState.shieldKey = false;
+    p2Hold.swordDown = false; p2Hold.swordKey = false; p2Hold.shieldKey = false;
+    killcamPending = false;
+    matchStartTime = performance.now();
+    lastTime = matchStartTime;
+    gameState = STATE_PLAYING;
+    hideAllScreens();
+    document.getElementById('actionBtns').classList.remove('hidden');
+  }
+
+  function wandererSpawnSection(startX) {
+    // Spawn 3 enemies + 2 platforms across the next ~600 world units
+    var section = wandererState.sectionsSpawned++;
+    var enemyTypes = ['knight', 'reaver', 'shadow', 'wiz_apprentice', 'rgr_scout', 'sam_ronin', 'nec_apprentice', 'bar_wildone'];
+    var n = 3 + Math.floor(Math.random() * 2);
+    for (var i = 0; i < n; i++) {
+      var ex = startX + 400 + i * 180 + Math.random() * 60;
+      var skinId = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+      var e = makeFighter('enemy');
+      e.skin = getSkin(skinId);
+      e.username = 'WANDERER FOE';
+      e.hp = WANDERER_ENEMY_HP; e.maxHp = WANDERER_ENEMY_HP;
+      e.wx = ex; e.wy = 0; e.vx = 0; e.vy = 0;
+      e.onGround = true; e.facingDir = -1;
+      e.aiAttackCooldown = 1500 + Math.random() * 1500;
+      wandererEnemies.push(e);
+    }
+    // Platforms — randomly placed within the section
+    for (var p = 0; p < 2; p++) {
+      var px = startX + 250 + p * 280 + Math.random() * 80;
+      var py = 70 + Math.random() * 60; // height above ground (positive = higher)
+      wandererPlatforms.push({ wx: px, wy: py, w: 90 + Math.random() * 60, h: 18 });
+    }
+    wandererState.lastSpawnX = startX + 700;
+  }
+
+  function tryWandererAttack() {
+    if (!player || gameState !== STATE_PLAYING) return;
+    var now = performance.now();
+    if (now < player.attackCooldownUntil) return;
+    if (player.hp <= 0) return;
+    // Fire a projectile in player's facing direction
+    var ws = (player.skin && player.skin.weaponStyle) || 'sword';
+    var dmg = attackDamage({ chargeRatio: 0.4, skin: player.skin, isCounterAttack: false });
+    var px = player.wx + player.facingDir * 30;
+    var py = -player.wy - 50;
+    wandererProjectiles.push({
+      wx: px, wy: py,
+      vx: player.facingDir * WANDERER_PROJ_SPEED,
+      vy: 0,
+      dmg: dmg,
+      owner: 'player',
+      type: ws,
+      color: (player.skin && player.skin.swordBlade) || '#fff',
+      color2: (player.skin && player.skin.swordPommel) || '#cca860',
+      life: 2400,
+      facingDir: player.facingDir
+    });
+    // Brief attack animation: set phase = strike for sword swoosh visual
+    player.phase = 'strike';
+    player.phaseStart = now;
+    player.chargeRatio = 0.4;
+    player.isHeavyAttack = false;
+    player.strikeResolved = true;
+    player.attackCooldownUntil = now + 350;
+    if (player.skin && player.skin.type) {
+      if (!player.lastBarkAt || now - player.lastBarkAt > 220) {
+        playBark(player.skin.type); player.lastBarkAt = now;
+      }
+    }
+  }
+
+  function tickWanderer(now, dt) {
+    if (!player || !wandererState || wandererState.gameOver) return;
+
+    // Movement input
+    var moveX = 0;
+    if (wandererInput.left)  { moveX -= 1; player.facingDir = -1; }
+    if (wandererInput.right) { moveX += 1; player.facingDir = 1; }
+    player.vx = moveX * WANDERER_WALK_SPEED;
+
+    // Jump
+    if (wandererInput.jump && player.onGround) {
+      player.vy = WANDERER_JUMP_VEL;
+      player.onGround = false;
+    }
+
+    // Gravity + position
+    player.vy += WANDERER_GRAVITY * dt;
+    player.wx += player.vx * dt;
+    player.wy -= player.vy * dt;
+    if (player.wx < 0) player.wx = 0;
+
+    // Ground collision
+    if (player.wy <= 0) {
+      player.wy = 0; player.vy = 0; player.onGround = true;
+    } else {
+      player.onGround = false;
+    }
+    // Platform collision (one-way: only when falling onto top)
+    if (player.vy > 0) {
+      for (var i = 0; i < wandererPlatforms.length; i++) {
+        var pl = wandererPlatforms[i];
+        var prevY = player.wy + player.vy * dt;
+        if (player.wx > pl.wx - pl.w/2 - 20 && player.wx < pl.wx + pl.w/2 + 20) {
+          if (player.wy <= pl.wy && prevY >= pl.wy - 4) {
+            player.wy = pl.wy; player.vy = 0; player.onGround = true;
+          }
+        }
+      }
+    }
+
+    // Camera follow (player at left third of screen)
+    var targetCam = player.wx - cssW * 0.30;
+    if (targetCam < 0) targetCam = 0;
+    wandererState.camX += (targetCam - wandererState.camX) * 0.12;
+
+    // Enemy AI + physics
+    for (var ei = wandererEnemies.length - 1; ei >= 0; ei--) {
+      var e = wandererEnemies[ei];
+      if (e.hp <= 0) continue;
+      var dx = player.wx - e.wx;
+      var dist = Math.abs(dx);
+      e.facingDir = dx > 0 ? 1 : -1;
+      if (dist > 110) {
+        e.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7;
+      } else {
+        e.vx = 0;
+      }
+      e.vy += WANDERER_GRAVITY * dt;
+      e.wx += e.vx * dt;
+      e.wy -= e.vy * dt;
+      if (e.wy <= 0) { e.wy = 0; e.vy = 0; }
+      // Enemy attacks when in range and cooldown elapsed
+      e.aiAttackCooldown -= dt;
+      if (dist < 280 && e.aiAttackCooldown <= 0) {
+        var ews = (e.skin && e.skin.weaponStyle) || 'sword';
+        wandererProjectiles.push({
+          wx: e.wx + e.facingDir * 30, wy: -e.wy - 50,
+          vx: e.facingDir * WANDERER_PROJ_SPEED * 0.85,
+          vy: 0, dmg: 6, owner: 'enemy', type: ews,
+          color: (e.skin && e.skin.swordBlade) || '#ff5050',
+          color2: (e.skin && e.skin.swordPommel) || '#cc1010',
+          life: 2200, facingDir: e.facingDir
+        });
+        e.phase = 'strike'; e.phaseStart = now; e.chargeRatio = 0.4; e.strikeResolved = true;
+        e.aiAttackCooldown = 1500 + Math.random() * 1200;
+      }
+      // Reset visual phase back to idle after a moment
+      if (e.phase === 'strike' && now - e.phaseStart > 200) {
+        e.phase = 'idle';
+      }
+    }
+
+    if (player.phase === 'strike' && now - player.phaseStart > 200) player.phase = 'idle';
+
+    // Tick projectiles
+    for (var pi = wandererProjectiles.length - 1; pi >= 0; pi--) {
+      var pr = wandererProjectiles[pi];
+      pr.wx += pr.vx * dt;
+      pr.wy += pr.vy * dt;
+      pr.life -= dt;
+      // Off-screen / expired
+      if (pr.life <= 0 || pr.wx - wandererState.camX < -100 || pr.wx - wandererState.camX > cssW + 100) {
+        wandererProjectiles.splice(pi, 1);
+        continue;
+      }
+      // Player projectile vs enemies
+      if (pr.owner === 'player') {
+        for (var k = 0; k < wandererEnemies.length; k++) {
+          var en = wandererEnemies[k];
+          if (en.hp <= 0) continue;
+          var enScreenY = -en.wy - 50;
+          if (Math.abs(pr.wx - en.wx) < 30 && Math.abs(pr.wy - enScreenY) < 40) {
+            en.hp = Math.max(0, en.hp - pr.dmg);
+            en.hurtFlash = 1;
+            addPopup(en, '-' + pr.dmg, '#ff7070');
+            playHit();
+            wandererProjectiles.splice(pi, 1);
+            if (en.hp <= 0) wandererOnEnemyKill(en);
+            break;
+          }
+        }
+      } else {
+        // Enemy projectile vs player
+        var pScreenY = -player.wy - 50;
+        if (Math.abs(pr.wx - player.wx) < 30 && Math.abs(pr.wy - pScreenY) < 40) {
+          player.hp = Math.max(0, player.hp - pr.dmg);
+          player.hurtFlash = 1;
+          addPopup(player, '-' + pr.dmg, '#ff5555');
+          shake = Math.max(shake, 8);
+          playHit();
+          wandererProjectiles.splice(pi, 1);
+          if (player.hp <= 0) wandererGameOver();
+        }
+      }
+    }
+
+    // Spawn next section as player approaches the front of the world
+    if (player.wx + cssW > wandererState.lastSpawnX - 200) {
+      wandererSpawnSection(wandererState.lastSpawnX);
+    }
+
+    // Decay flashes/popups (these aren't ticked normally because update() returns early in non-playing modes — but here we are PLAYING, with a custom path)
+    for (var fi = flashes.length - 1; fi >= 0; fi--) {
+      flashes[fi].life -= dt;
+      if (flashes[fi].life <= 0) flashes.splice(fi, 1);
+    }
+    for (var pp = popups.length - 1; pp >= 0; pp--) {
+      popups[pp].life -= dt; popups[pp].y -= dt * 0.04;
+      if (popups[pp].life <= 0) popups.splice(pp, 1);
+    }
+    if (shake > 0) shake = Math.max(0, shake - dt * 0.06);
+    if (player.hurtFlash > 0) player.hurtFlash = Math.max(0, player.hurtFlash - dt * 0.005);
+    wandererEnemies.forEach(function (en) {
+      if (en.hurtFlash > 0) en.hurtFlash = Math.max(0, en.hurtFlash - dt * 0.005);
+    });
+  }
+
+  function wandererOnEnemyKill(en) {
+    wandererState.killed += 1;
+    profile.coins += WANDERER_REWARD_PER_KILL;
+    profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned || 0) + WANDERER_REWARD_PER_KILL;
+    addPopup(en, '+' + WANDERER_REWARD_PER_KILL + ' 🪙', '#ffd34d');
+    saveProfile();
+  }
+
+  function wandererGameOver() {
+    if (wandererState.gameOver) return;
+    wandererState.gameOver = true;
+    document.getElementById('actionBtns').classList.add('hidden');
+    setTimeout(function () {
+      gameState = STATE_GAMEOVER;
+      // Show a simple result via the existing gameover screen
+      var titleEl = document.getElementById('goTitle');
+      var msgEl = document.getElementById('goMsg');
+      titleEl.textContent = 'WANDERER FALLEN';
+      msgEl.textContent = 'You defeated ' + wandererState.killed + ' foes and earned ' +
+        (wandererState.killed * WANDERER_REWARD_PER_KILL) + ' coins.';
+      var rematchBtn = document.getElementById('goRematchBtn');
+      rematchBtn.textContent = 'WANDER AGAIN';
+      rematchBtn.setAttribute('data-action', 'restart-wanderer');
+      // Hide rank panel + coin delta + stats for wanderer
+      document.getElementById('goRankPanel').style.display = 'none';
+      document.getElementById('goCoinDelta').classList.add('hidden');
+      document.getElementById('goStats').innerHTML = '';
+      showScreen('gameover');
+    }, 600);
+  }
+
+  function drawWanderer(now) {
+    if (!wandererState || !player) return;
+    var camX = wandererState.camX;
+    var groundScreenY = cssH * 0.70;
+    // Sky background already drawn by drawBg/drawFloor; add horizon line
+    // Draw ground line
+    ctx.fillStyle = '#2a2244';
+    ctx.fillRect(0, groundScreenY + 50, cssW, cssH - groundScreenY);
+    // Distant parallax stripes
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    for (var i = 0; i < 6; i++) {
+      var sx = ((i * 220 - camX * 0.3) % (cssW + 220)) - 110;
+      ctx.fillRect(sx, groundScreenY - 80, 80, 80);
+    }
+    // Platforms
+    wandererPlatforms.forEach(function (pl) {
+      var sx = pl.wx - camX - pl.w / 2;
+      var sy = groundScreenY - pl.wy;
+      if (sx + pl.w < 0 || sx > cssW) return;
+      // wood face
+      var grd = ctx.createLinearGradient(sx, sy, sx, sy + pl.h);
+      grd.addColorStop(0, '#8a5a30');
+      grd.addColorStop(1, '#3a1f10');
+      ctx.fillStyle = grd;
+      ctx.fillRect(sx, sy, pl.w, pl.h);
+      // edge
+      ctx.fillStyle = '#1a0a08';
+      ctx.fillRect(sx, sy, pl.w, 3);
+    });
+    // Enemies
+    wandererEnemies.forEach(function (en) {
+      if (en.hp <= 0) return;
+      drawFighter(en, now);
+      // HP bar above enemy
+      var sx = en.wx - camX;
+      var sy = groundScreenY - en.wy - 130;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(sx - 24, sy, 48, 5);
+      ctx.fillStyle = '#ff5d7e';
+      ctx.fillRect(sx - 24, sy, 48 * (en.hp / en.maxHp), 5);
+    });
+    // Player
+    drawFighter(player, now);
+    // Projectiles
+    wandererProjectiles.forEach(function (pr) {
+      var sx = pr.wx - camX;
+      var sy = groundScreenY + pr.wy;
+      drawWandererProjectile(pr, sx, sy);
+    });
+    // HUD: HP bar + kill count
+    var barW = Math.min(cssW * 0.4, 320);
+    drawHpBar(20, 20, barW, 22, player.hp / (player.maxHp || MAX_HP), '#4dd6ff', profile.username || 'YOU', false);
+    ctx.fillStyle = '#fff';
+    ctx.font = '900 20px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText('🌍 KILLS: ' + wandererState.killed, cssW - 20, 20);
+    ctx.font = '700 12px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+    ctx.fillText('+' + WANDERER_REWARD_PER_KILL + ' 🪙 each', cssW - 20, 48);
+    // Hint
+    if (now - matchStartTime < 5500) {
+      var fade = 1 - (now - matchStartTime) / 5500;
+      if (fade < 0) fade = 0;
+      ctx.fillStyle = 'rgba(255,255,255,' + fade + ')';
+      ctx.font = '700 16px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('WASD to move + jump · Z or tap to fire (in your facing direction)', cssW / 2, cssH - 40);
+    }
+  }
+
+  function drawWandererProjectile(pr, sx, sy) {
+    ctx.save();
+    ctx.translate(sx, sy);
+    var angle = Math.atan2(pr.vy, pr.vx);
+    ctx.rotate(angle);
+    if (pr.type === 'staff') {
+      var grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 14);
+      grd.addColorStop(0, '#fff');
+      grd.addColorStop(0.5, pr.color);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI * 2); ctx.fill();
+    } else if (pr.type === 'bow') {
+      ctx.fillStyle = pr.color2;
+      ctx.fillRect(-14, -1, 22, 2);
+      ctx.fillStyle = pr.color;
+      ctx.beginPath();
+      ctx.moveTo(8, 0); ctx.lineTo(2, -4); ctx.lineTo(14, 0); ctx.lineTo(2, 4);
+      ctx.closePath(); ctx.fill();
+    } else if (pr.type === 'scythe') {
+      ctx.strokeStyle = hexA(pr.color, 0.5);
+      ctx.lineWidth = 12; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, 0, 16, -1.2, 1.2); ctx.stroke();
+      ctx.strokeStyle = hexA(pr.color, 0.95);
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, 16, -1.2, 1.2); ctx.stroke();
+    } else if (pr.type === 'katana') {
+      ctx.strokeStyle = hexA(pr.color, 0.4);
+      ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(8, 0); ctx.stroke();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(8, 0); ctx.stroke();
+    } else if (pr.type === 'axe') {
+      // Axe throw: a small spinning crescent
+      ctx.fillStyle = pr.color;
+      ctx.beginPath();
+      ctx.moveTo(-10, -10); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-10, 10);
+      ctx.closePath(); ctx.fill();
+    } else {
+      // Default sword: a thin glowing line
+      ctx.strokeStyle = pr.color;
+      ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(14, 0); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // ---------- Survival mode ----------
@@ -7324,6 +7762,9 @@
       case 'restart-survival':
         startSurvival();
         break;
+      case 'restart-wanderer':
+        startWanderer();
+        break;
       case 'save-snapshot':
         saveCanvasSnapshot();
         break;
@@ -7332,6 +7773,9 @@
         break;
       case 'mode-local':
         startMatch('local');
+        break;
+      case 'mode-wanderer':
+        startWanderer();
         break;
       case 'back-mode':
         goToMode();
