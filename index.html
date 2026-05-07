@@ -7647,18 +7647,20 @@
     if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
     // Only ranged weapons fire a projectile. Melee weapons (sword / axe /
-    // katana / scythe) just play the swing animation — they don't shoot.
+    // katana / scythe) instead deal damage in a short arc in front of the
+    // player when they swing — no projectile flies out.
     var ws = (player.skin && player.skin.weaponStyle) || 'sword';
     var isRanged = (ws === 'staff' || ws === 'bow');
+    var baseDmg = attackDamage({ chargeRatio: 0.4, skin: player.skin, isCounterAttack: false });
+    var rageMult = (player.activeBuffs && player.activeBuffs.rage) ? (player.activeBuffs.rage.dmgMult || 1) : 1;
     if (isRanged) {
-      var dmg = attackDamage({ chargeRatio: 0.4, skin: player.skin, isCounterAttack: false });
       var px = player.wx + player.facingDir * 30;
       var py = -player.wy - 50;
       wandererProjectiles.push({
         wx: px, wy: py,
         vx: player.facingDir * WANDERER_PROJ_SPEED,
         vy: 0,
-        dmg: dmg,
+        dmg: baseDmg,
         owner: 'player',
         type: ws,
         color: (player.skin && player.skin.swordBlade) || '#fff',
@@ -7666,6 +7668,29 @@
         life: 2400,
         facingDir: player.facingDir
       });
+    } else {
+      // Melee hit: scan enemies in a forward arc and damage all of them.
+      var meleeRange = 95;   // px forward reach
+      var meleeVert  = 70;   // vertical tolerance (covers crates / low platforms)
+      for (var mi = 0; mi < wandererEnemies.length; mi++) {
+        var men = wandererEnemies[mi];
+        if (men.hp <= 0) continue;
+        var sdx = (men.wx - player.wx) * player.facingDir;
+        if (sdx < -10 || sdx > meleeRange) continue;
+        var sdy = (men.wy || 0) - (player.wy || 0);
+        if (Math.abs(sdy) > meleeVert) continue;
+        var mdmg = Math.round(baseDmg * rageMult);
+        if (player.activeBuffs && player.activeBuffs.reaper && player.activeBuffs.reaper.nextHitMult) {
+          mdmg = Math.round(mdmg * player.activeBuffs.reaper.nextHitMult);
+          delete player.activeBuffs.reaper;
+        }
+        if (cheats.oneShot) mdmg = 9999;
+        men.hp = Math.max(0, men.hp - mdmg);
+        men.hurtFlash = 1;
+        addPopup(men, '-' + mdmg, '#ff7070');
+        playHit();
+        if (men.hp <= 0) wandererOnEnemyKill(men);
+      }
     }
     // Always play the swing animation (windup → strike) so melee weapons
     // still feel like they're attacking even with no projectile.
