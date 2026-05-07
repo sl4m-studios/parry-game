@@ -7670,8 +7670,11 @@
       });
     } else {
       // Melee hit: scan enemies in a forward arc and damage all of them.
-      var meleeRange = 95;   // px forward reach
-      var meleeVert  = 70;   // vertical tolerance (covers crates / low platforms)
+      // Reach is tuned to roughly match the visual sword-tip during the
+      // strike pose; previous 95 px was too short and only landed when the
+      // player was nose-to-nose with the enemy.
+      var meleeRange = 160;  // px forward reach (out to weapon tip)
+      var meleeVert  = 95;   // vertical tolerance (covers crates / low platforms)
       for (var mi = 0; mi < wandererEnemies.length; mi++) {
         var men = wandererEnemies[mi];
         if (men.hp <= 0) continue;
