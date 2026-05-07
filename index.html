@@ -7211,7 +7211,9 @@
   // ===== WANDERER MODE — side-scrolling platformer =====
   // Fully isolated from other modes: gated by gameMode === 'wanderer' everywhere.
   var WANDERER_GRAVITY = 0.0028;       // px / ms^2
-  var WANDERER_JUMP_VEL = -1.05;       // px / ms (negative = up)
+  var WANDERER_JUMP_VEL = -1.30;       // px / ms (negative = up). Higher
+  // peak so the air-platform tier (wy 200..300) is reachable on a normal
+  // jump; spring mushrooms (1.6x) push the ceiling further still.
   var WANDERER_WALK_SPEED = 0.36;      // px / ms
   var WANDERER_PROJ_SPEED = 1.1;       // px / ms (directional projectile velocity)
   var WANDERER_ENEMY_HP = 30;
@@ -7283,42 +7285,50 @@
       e.aggro = false;
       wandererEnemies.push(e);
     }
-    // Step-on obstacles — clean platforming layout. Most platforms sit
-    // high in the air (wy 130..195) and are spaced ~130 wy apart so the
-    // gap between any two is comfortably jumpable (jump arc covers ~270
-    // wy horizontally at peak). Section is 700 wy wide.
-    // -- 6 high air platforms forming the main jumping path. Alternating
-    // wood + cloud kinds so the path reads visually distinct.
+    // Step-on obstacles — way-up-there platforming. The jump ceiling on
+    // a normal jump is now ~302 wy (JUMP_VEL=-1.30, GRAVITY=0.0028); spring
+    // boosts push it to ~770. Air platforms cluster at wy 220..300 with a
+    // few "sky" platforms at wy 360..450 reachable only via spring/cloud
+    // chains. Section is 700 wy wide.
+    // -- 6 main air platforms (alternating wood/cloud) at wy 220..300.
     for (var p = 0; p < 6; p++) {
       var wpx = startX + 100 + p * 110 + Math.random() * 30;
-      var wpy = 140 + Math.random() * 50; // 140..190 — way up
+      var wpy = 220 + Math.random() * 80; // 220..300 — way up
       var kind = (p % 2 === 0) ? 'wood' : 'cloud';
       wandererPlatforms.push({ kind: kind, wx: wpx, wy: wpy,
         w: kind === 'cloud' ? 80 : (70 + Math.random() * 30),
         h: 18 });
     }
-    // -- 2 green pipes (rims at high heights so they slot into the path).
-    wandererPlatforms.push({ kind: 'pipe', wx: startX + 60,  wy: 150, w: 56, h: 150 });
-    wandererPlatforms.push({ kind: 'pipe', wx: startX + 620, wy: 130, w: 50, h: 130 });
-    // -- 2 brick stacks (3 bricks high) at mid-section anchors.
+    // -- 3 sky platforms (wy 360..450) — reachable from a spring bounce or
+    // by chaining off the main air tier.
+    for (var sk = 0; sk < 3; sk++) {
+      wandererPlatforms.push({ kind: 'cloud',
+        wx: startX + 200 + sk * 180 + Math.random() * 40,
+        wy: 360 + Math.random() * 90,
+        w: 80, h: 18 });
+    }
+    // -- 2 tall green pipes (rim heights 240 / 200).
+    wandererPlatforms.push({ kind: 'pipe', wx: startX + 60,  wy: 240, w: 56, h: 240 });
+    wandererPlatforms.push({ kind: 'pipe', wx: startX + 620, wy: 200, w: 50, h: 200 });
+    // -- 2 brick stacks (4 bricks high) for stair-climb access to the air tier.
     var brickXs = [startX + 240, startX + 480];
     for (var bk = 0; bk < brickXs.length; bk++) {
-      for (var bi = 0; bi < 3; bi++) {
+      for (var bi = 0; bi < 4; bi++) {
         wandererPlatforms.push({ kind: 'brick', wx: brickXs[bk],
           wy: 32 + bi * 32, w: 40, h: 32 });
       }
     }
     // -- 2 question blocks pinned high.
-    wandererPlatforms.push({ kind: 'qblock', wx: startX + 200, wy: 175, w: 38, h: 38 });
-    wandererPlatforms.push({ kind: 'qblock', wx: startX + 540, wy: 165, w: 38, h: 38 });
-    // -- 1 spring mushroom (gives the player a way back up to the high path).
-    wandererPlatforms.push({ kind: 'spring', wx: startX + 360, wy: 32, w: 38, h: 32 });
-    // -- Light ground decoration (so the floor isn't bare): 2 crates, 1 stone,
-    //    1 stump — placed off the main jumping path.
+    wandererPlatforms.push({ kind: 'qblock', wx: startX + 200, wy: 270, w: 38, h: 38 });
+    wandererPlatforms.push({ kind: 'qblock', wx: startX + 540, wy: 250, w: 38, h: 38 });
+    // -- 2 spring mushrooms (essential for the sky tier).
+    wandererPlatforms.push({ kind: 'spring', wx: startX + 200, wy: 32, w: 38, h: 32 });
+    wandererPlatforms.push({ kind: 'spring', wx: startX + 520, wy: 32, w: 38, h: 32 });
+    // -- Light ground decoration off the main path.
     wandererPlatforms.push({ kind: 'crate', wx: startX + 130, wy: 0, w: 42, h: 42 });
     wandererPlatforms.push({ kind: 'crate', wx: startX + 580, wy: 0, w: 42, h: 42 });
     wandererPlatforms.push({ kind: 'stone', wx: startX + 410, wy: 26, w: 100, h: 24 });
-    wandererPlatforms.push({ kind: 'stump', wx: startX + 300, wy: 50, w: 48, h: 20 });
+    wandererPlatforms.push({ kind: 'stump', wx: startX + 360, wy: 50, w: 48, h: 20 });
     wandererState.lastSpawnX = startX + 700;
   }
 
