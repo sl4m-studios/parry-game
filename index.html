@@ -2139,46 +2139,46 @@
   var SKILL_KEYS = ['Q', 'E', 'R', 'F', 'G'];
   var SKILLS = {
     knight: [
-      { id:'shield_bash', name:'SHIELD BASH',   desc:'Lunge forward, stun on hit (0.5s)', cooldown:4000,  family:'mobility', icon:'🛡️' },
-      { id:'iron_will',   name:'IRON WILL',     desc:'Brief invuln + 30% speed (2s)',     cooldown:6000,  family:'buff',     icon:'✨' },
-      { id:'lance_stab',  name:'LANCE STAB',    desc:'Long-reach piercing thrust',         cooldown:3000,  family:'projectile', icon:'➤' },
-      { id:'rampart',     name:'RAMPART',       desc:'Plant a wall blocking projectiles', cooldown:8000,  family:'aoe',      icon:'🧱' },
-      { id:'oath',        name:'OATH OF VALOR', desc:'Heal 25 HP over 3s',                cooldown:12000, family:'heal',     icon:'❤️' }
+      { id:'shield_bash', name:'SHIELD BASH',   desc:'Lunge, stun + 18 dmg on hit', cooldown:4000,  family:'mobility',   icon:'🛡️',  color:'#cccccc' },
+      { id:'iron_will',   name:'IRON WILL',     desc:'Invuln + 30% speed + knockback ring (2s)', cooldown:6000,  family:'buff',     icon:'✨',  color:'#ffe680' },
+      { id:'lance_stab',  name:'LANCE STAB',    desc:'Piercing thrust, 28 dmg + 2s bleed', cooldown:4000,  family:'projectile', icon:'➤',  color:'#ffd34d' },
+      { id:'rampart',     name:'RAMPART',       desc:'Plant a wall blocking projectiles', cooldown:8000,  family:'aoe',      icon:'🧱',  color:'#cccccc' },
+      { id:'oath',        name:'OATH OF VALOR', desc:'Heal 30 HP over 3s',          cooldown:8000,  family:'heal',     icon:'❤️',  color:'#ff6680' }
     ],
     wizard: [
-      { id:'fireball',  name:'FIREBALL',        desc:'Big AoE burst projectile',          cooldown:3500,  family:'projectile', icon:'🔥' },
-      { id:'blink',     name:'BLINK',           desc:'Teleport ahead with i-frames',      cooldown:5000,  family:'mobility',   icon:'⚡' },
-      { id:'lightning', name:'CHAIN LIGHTNING', desc:'Zaps up to 3 nearby enemies',       cooldown:6000,  family:'aoe',        icon:'⚡' },
-      { id:'frostnova', name:'FROST NOVA',      desc:'Freeze nearby enemies (1.5s)',      cooldown:7000,  family:'aoe',        icon:'❄️' },
-      { id:'meteor',    name:'METEOR',          desc:'Falling crash from above',          cooldown:10000, family:'aoe',        icon:'☄️' }
+      { id:'fireball',  name:'FIREBALL',        desc:'Explosive AoE projectile, 28 dmg', cooldown:3500,  family:'projectile', icon:'🔥',  color:'#ff7a30' },
+      { id:'blink',     name:'BLINK',           desc:'Teleport ahead with i-frames',  cooldown:5000,  family:'mobility',   icon:'⚡',  color:'#9ed4ff' },
+      { id:'lightning', name:'CHAIN LIGHTNING', desc:'Zaps up to 3 nearby enemies',   cooldown:6000,  family:'aoe',        icon:'⚡',  color:'#aae6ff' },
+      { id:'frostnova', name:'FROST NOVA',      desc:'Freeze nearby enemies (1.5s)',  cooldown:7000,  family:'aoe',        icon:'❄️',  color:'#bff0ff' },
+      { id:'meteor',    name:'METEOR',          desc:'Falling crash from above',      cooldown:10000, family:'aoe',        icon:'☄️',  color:'#ff5020' }
     ],
     ranger: [
-      { id:'multishot', name:'MULTISHOT',     desc:'3 arrows in a fan',           cooldown:4000, family:'projectile', icon:'🏹' },
-      { id:'piercing',  name:'PIERCING SHOT', desc:'Arrow passes through enemies',cooldown:3500, family:'projectile', icon:'➤' },
-      { id:'venom',     name:'VENOM ARROW',   desc:'DoT damage over 4s',          cooldown:5000, family:'projectile', icon:'🐍' },
-      { id:'roll',      name:'COMBAT ROLL',   desc:'Quick dodge with i-frames',   cooldown:4000, family:'mobility',   icon:'💨' },
-      { id:'rain',      name:'ARROW RAIN',    desc:'Volley falls in target zone', cooldown:9000, family:'aoe',        icon:'🌧️' }
+      { id:'multishot', name:'MULTISHOT',     desc:'3 homing arrows, 16 dmg each',  cooldown:4000, family:'projectile', icon:'🏹',  color:'#ffd34d' },
+      { id:'piercing',  name:'PIERCING SHOT', desc:'Pierces, 22 dmg + 0.5s slow',   cooldown:3500, family:'projectile', icon:'➤',  color:'#aaffcc' },
+      { id:'venom',     name:'VENOM ARROW',   desc:'14 dmg + poison; spreads on kill', cooldown:5000, family:'projectile', icon:'🐍',  color:'#5fff80' },
+      { id:'roll',      name:'COMBAT ROLL',   desc:'Dodge + smoke cloud at landing', cooldown:4000, family:'mobility',   icon:'💨',  color:'#cccccc' },
+      { id:'rain',      name:'ARROW RAIN',    desc:'Volley falls in target zone',   cooldown:9000, family:'aoe',        icon:'🌧️',  color:'#ffd34d' }
     ],
     necromancer: [
-      { id:'soulrip',   name:'SOUL RIP',       desc:'Drain 15 HP from target',     cooldown:5000,  family:'projectile', icon:'👻' },
-      { id:'minion',    name:'RAISE SKELETON', desc:'Summon ally that attacks (8s)', cooldown:12000, family:'buff',     icon:'💀' },
-      { id:'curse',     name:'CURSE OF DECAY', desc:'Halve enemy damage (4s)',     cooldown:7000,  family:'aoe',       icon:'🦴' },
-      { id:'death_orb', name:'ORB OF NIGHT',   desc:'Slow tracking projectile',    cooldown:4500,  family:'projectile', icon:'🌑' },
-      { id:'reaper',    name:'REAPER MARK',    desc:'Next hit deals 3x dmg',       cooldown:10000, family:'buff',      icon:'☠️' }
+      { id:'soulrip',   name:'SOUL RIP',       desc:'Drain 15 HP; kills leave a healing wisp', cooldown:5000,  family:'projectile', icon:'👻',  color:'#a060ff' },
+      { id:'minion',    name:'RAISE SKELETON', desc:'Summon ally that attacks (8s)', cooldown:12000, family:'buff',     icon:'💀',  color:'#dad0a0' },
+      { id:'curse',     name:'CURSE OF DECAY', desc:'14 dmg + halves dmg + 30% slow', cooldown:7000,  family:'aoe',       icon:'🦴',  color:'#c060ff' },
+      { id:'death_orb', name:'ORB OF NIGHT',   desc:'Slow tracking projectile',      cooldown:4500,  family:'projectile', icon:'🌑',  color:'#7050a0' },
+      { id:'reaper',    name:'REAPER MARK',    desc:'Next hit deals 3x dmg',         cooldown:10000, family:'buff',      icon:'☠️',  color:'#ff4070' }
     ],
     samurai: [
-      { id:'iaido', name:'IAIDO STRIKE', desc:'Lightning counter slash',           cooldown:4000,  family:'mobility',   icon:'⚔️' },
-      { id:'wind',  name:'WIND CUTTER',  desc:'Sword wave projectile',             cooldown:3500,  family:'projectile', icon:'🌬️' },
-      { id:'focus', name:'FOCUS',        desc:'Slow time briefly (2s)',            cooldown:8000,  family:'buff',       icon:'🌀' },
-      { id:'dash',  name:'KATA DASH',    desc:'Dash + slash all in path',          cooldown:5000,  family:'mobility',   icon:'💨' },
-      { id:'final', name:'FINAL STAND',  desc:'+50% dmg when below 30% HP (5s)',   cooldown:10000, family:'buff',       icon:'🔥' }
+      { id:'iaido', name:'IAIDO STRIKE', desc:'Lightning counter slash',           cooldown:4000,  family:'mobility',   icon:'⚔️',  color:'#ffe680' },
+      { id:'wind',  name:'WIND CUTTER',  desc:'24 dmg, pierces 2; leaves slash line', cooldown:3500,  family:'projectile', icon:'🌬️',  color:'#aaffe6' },
+      { id:'focus', name:'FOCUS',        desc:'Slow time briefly (2s)',            cooldown:8000,  family:'buff',       icon:'🌀',  color:'#9ed4ff' },
+      { id:'dash',  name:'KATA DASH',    desc:'Dash + slash all in path',          cooldown:5000,  family:'mobility',   icon:'💨',  color:'#ff8060' },
+      { id:'final', name:'FINAL STAND',  desc:'+50% dmg when below 30% HP (5s)',   cooldown:10000, family:'buff',       icon:'🔥',  color:'#ff6030' }
     ],
     barbarian: [
-      { id:'rage',    name:'RAGE',        desc:'+30% dmg + speed (4s)',          cooldown:8000, family:'buff',     icon:'😠' },
-      { id:'whirl',   name:'WHIRLWIND',   desc:'Spin attack hits all around',     cooldown:5000, family:'aoe',      icon:'🌪️' },
-      { id:'leap',    name:'LEAP SLAM',   desc:'Jump then crash down',            cooldown:6000, family:'mobility', icon:'🦘' },
-      { id:'roar',    name:'BATTLE ROAR', desc:'Stun all nearby for 1s',          cooldown:7000, family:'aoe',      icon:'📣' },
-      { id:'execute', name:'EXECUTE',     desc:'Massive dmg vs <30% HP target',   cooldown:9000, family:'mobility', icon:'💥' }
+      { id:'rage',    name:'RAGE',        desc:'+30% dmg + speed (4s)',           cooldown:8000, family:'buff',     icon:'😠',  color:'#ff5040' },
+      { id:'whirl',   name:'WHIRLWIND',   desc:'Spin attack hits all around',     cooldown:5000, family:'aoe',      icon:'🌪️',  color:'#ffa060' },
+      { id:'leap',    name:'LEAP SLAM',   desc:'Jump then crash down',            cooldown:6000, family:'mobility', icon:'🦘',  color:'#ffaa30' },
+      { id:'roar',    name:'BATTLE ROAR', desc:'Stun all nearby for 1s',          cooldown:7000, family:'aoe',      icon:'📣',  color:'#ff7050' },
+      { id:'execute', name:'EXECUTE',     desc:'Massive dmg vs <30% HP target',   cooldown:9000, family:'mobility', icon:'💥',  color:'#ff3030' }
     ]
   };
   function getSkillsForType(t) { return SKILLS[t] || SKILLS.knight; }
@@ -2898,6 +2898,41 @@
       g.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
       osc.connect(g); g.connect(audioCtx.destination);
       osc.start(start); osc.stop(start + 0.34);
+    }
+  }
+
+  // ---------- Skill cast cues (per family) ----------
+  function playSkillCue(family) {
+    if (!audioCtx || !profile.soundOn) return;
+    var t = audioCtx.currentTime;
+    function tone(freq, sweepTo, type, gain, dur, startOff) {
+      var so = startOff || 0;
+      var osc = audioCtx.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t + so);
+      if (sweepTo) osc.frequency.exponentialRampToValueAtTime(sweepTo, t + so + dur);
+      var g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, t + so);
+      g.gain.exponentialRampToValueAtTime(gain, t + so + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + so + dur);
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start(t + so); osc.stop(t + so + dur + 0.02);
+    }
+    if (family === 'projectile') {
+      tone(380, 180, 'sawtooth', 0.22, 0.18);
+    } else if (family === 'aoe') {
+      tone(220, 220, 'triangle', 0.16, 0.32, 0);
+      tone(330, 330, 'triangle', 0.14, 0.32, 0.04);
+      tone(440, 440, 'triangle', 0.12, 0.32, 0.08);
+    } else if (family === 'buff') {
+      tone(180, 540, 'sine', 0.18, 0.30);
+    } else if (family === 'mobility') {
+      tone(640, 220, 'square', 0.12, 0.14);
+    } else if (family === 'heal') {
+      tone(330, 440, 'sine', 0.15, 0.45);
+      tone(495, 660, 'sine', 0.10, 0.45, 0.06);
+    } else {
+      tone(300, 200, 'sine', 0.14, 0.18);
     }
   }
 
@@ -7300,7 +7335,8 @@
     if (now < cd && !cheats.infiniteSkillCd) return;
     player.skillCooldowns[skill.id] = now + (cheats.infiniteSkillCd ? 0 : skill.cooldown);
     castSkill(skill, now);
-    addPopup(player, skill.name, '#9ed4ff');
+    // Skill name popup uses the skill's identity colour for chunky feedback.
+    addPopup(player, skill.name, skill.color || '#9ed4ff');
   }
 
   function castSkill(skill, now) {
@@ -7311,8 +7347,10 @@
       case 'heal':       castHeal(skill, now); break;
       case 'mobility':   castMobility(skill, now); break;
     }
-    // Cast flash
-    addFlash(player, '#9ed4ff', 90);
+    // Per-skill flash + audio cue. Heavy-hitting families also kick a screen
+    // shake so impact reads even when offscreen / behind UI.
+    addFlash(player, skill.color || '#9ed4ff', 110);
+    playSkillCue(skill.family);
   }
 
   // PROJECTILE family
@@ -7329,30 +7367,44 @@
     }
     switch (skill.id) {
       case 'fireball':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.9, dmg: 28, color: '#ff8030', color2: '#ffd060', radius: 22, explosive: true, life: 2400 });
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.9, dmg: 28, color: '#ff8030', color2: '#ffd060', radius: 22, explosive: true, life: 2400, trail: true });
         break;
       case 'lance_stab':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.6, dmg: 22, color: '#cccccc', color2: '#888', radius: 12, piercing: true, life: 800 });
+        // 28 dmg + 1s bleed (status='bleed' uses the same poison tick path,
+        // re-coloured red so popups read as bleed not venom).
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.6, dmg: 28, color: '#ffd34d', color2: '#fff', radius: 12, piercing: true, life: 800, trail: true,
+                status: 'bleed', statusDur: 2000, statusTickDmg: 5 });
         break;
       case 'multishot':
+        // 3 homing arrows, 16 dmg each.
         for (var i = -1; i <= 1; i++) {
-          spawn({ vx: face * WANDERER_PROJ_SPEED * 1.0, vy: i * 90, dmg: 12, color: '#aaff80', color2: '#fff', radius: 10 });
+          spawn({ vx: face * WANDERER_PROJ_SPEED * 1.0, vy: i * 60, dmg: 16, color: '#ffd34d', color2: '#fff', radius: 10, tracking: true, life: 2400 });
         }
         break;
       case 'piercing':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.4, dmg: 16, color: '#fff070', color2: '#fff', radius: 11, piercing: true });
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.4, dmg: 22, color: '#aaffcc', color2: '#fff', radius: 11, piercing: true,
+                status: 'slow', statusDur: 500, trail: true });
         break;
       case 'venom':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 8, color: '#80ff60', color2: '#208030', radius: 11, status: 'poison', statusDur: 4000, statusTickDmg: 3 });
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 14, color: '#5fff80', color2: '#208030', radius: 12, status: 'poison',
+                statusDur: 4000, statusTickDmg: 4, poisonSpread: true, trail: true });
         break;
       case 'soulrip':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 15, color: '#c060ff', color2: '#400080', radius: 14, lifesteal: true });
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.1, dmg: 15, color: '#a060ff', color2: '#400080', radius: 14, lifesteal: true, trail: true });
         break;
       case 'death_orb':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.55, dmg: 18, color: '#202040', color2: '#8060ff', radius: 18, tracking: true, life: 4000 });
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 0.55, dmg: 18, color: '#7050a0', color2: '#cca0ff', radius: 18, tracking: true, life: 4000, trail: true });
         break;
       case 'wind':
-        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.3, dmg: 16, color: '#cce8ff', color2: '#fff', radius: 16, piercing: true, life: 1400 });
+        // 24 dmg, pierces 2 enemies, plus a 0.5s slash line that damages
+        // anyone walking through it.
+        spawn({ vx: face * WANDERER_PROJ_SPEED * 1.3, dmg: 24, color: '#aaffe6', color2: '#fff', radius: 16, piercing: true, life: 1400, trail: true,
+                pierceCap: 2 });
+        wandererAoe.push({
+          wx: player.wx + face * 90, wy: -50, r: 0, maxR: 0, born: now, life: 500,
+          color: '#aaffe6', dmg: 12, owner: 'player', hits: [], kind: 'wall', wallH: 70, wallW: 18,
+          dealsDamage: true
+        });
         break;
       default:
         spawn({});
@@ -7378,31 +7430,37 @@
         });
         break;
       case 'lightning':
-        ring({ color: '#fff080', maxR: 220, life: 500, dmg: 22, kind: 'lightning' });
+        ring({ color: '#aae6ff', maxR: 220, life: 500, dmg: 22, kind: 'lightning' });
+        shake = Math.max(shake, 8);
         break;
       case 'frostnova':
-        ring({ color: '#a0e0ff', maxR: 180, life: 500, dmg: 12, status: 'freeze', statusDur: 1500, kind: 'frost' });
+        ring({ color: '#bff0ff', maxR: 180, life: 500, dmg: 12, status: 'freeze', statusDur: 1500, kind: 'frost' });
+        shake = Math.max(shake, 10);
         break;
       case 'meteor':
         // delayed crash: spawn telegraph then deal damage when life<200
         wandererAoe.push({ wx: player.wx + face * 100, wy: -50, r: 0, maxR: 90, born: now, life: 1200,
-          color: '#ff6020', dmg: 40, owner: 'player', hits: [], kind: 'meteor', delay: 700 });
+          color: '#ff5020', dmg: 40, owner: 'player', hits: [], kind: 'meteor', delay: 700, shakeOnHit: 24 });
         break;
       case 'rain':
         for (var i = 0; i < 5; i++) {
           var ox = (i - 2) * 50;
           wandererAoe.push({ wx: player.wx + face * 60 + ox, wy: -50, r: 0, maxR: 50, born: now + i * 80, life: 800 + i * 80,
-            color: '#a0ff80', dmg: 12, owner: 'player', hits: [], kind: 'rain', delay: 500 });
+            color: '#ffd34d', dmg: 12, owner: 'player', hits: [], kind: 'rain', delay: 500 });
         }
         break;
       case 'curse':
-        ring({ color: '#80ff80', maxR: 200, life: 450, dmg: 8, status: 'curse', statusDur: 4000, kind: 'curse' });
+        // 14 dmg + curse (halves enemy damage) + slow movement.
+        ring({ color: '#c060ff', maxR: 200, life: 450, dmg: 14, status: 'curse', statusDur: 4000, kind: 'curse',
+               extraStatus: 'slow', extraStatusDur: 4000, slowMult: 0.4 });
         break;
       case 'whirl':
         ring({ color: '#ffa040', maxR: 150, life: 700, dmg: 25, kind: 'whirl' });
+        shake = Math.max(shake, 14);
         break;
       case 'roar':
         ring({ color: '#ffd34d', maxR: 220, life: 500, dmg: 6, status: 'stun', statusDur: 1000, kind: 'roar' });
+        shake = Math.max(shake, 12);
         break;
       default:
         ring({});
@@ -7416,6 +7474,10 @@
       case 'iron_will':
         b.iron_will = { until: now + 2000, speedMult: 1.3, invuln: true };
         player.dodgeUntil = Math.max(player.dodgeUntil || 0, now + 2000);
+        // Knockback shockwave: a quick 0-damage ring that throws nearby
+        // enemies back via the new `knockback` flag handled in tickWandererSkills.
+        wandererAoe.push({ wx: player.wx, wy: -50, r: 0, maxR: 140, born: now, life: 350,
+          color: '#ffe680', dmg: 0, owner: 'player', hits: [], kind: 'shock', knockback: 60 });
         break;
       case 'rage':
         b.rage = { until: now + 4000, dmgMult: 1.3, speedMult: 1.3 };
@@ -7425,6 +7487,7 @@
         break;
       case 'final':
         b.final = { until: now + 5000, conditional: 'lowhp', dmgMult: 1.5 };
+        shake = Math.max(shake, 10);
         break;
       case 'focus':
         b.focus = { until: now + 2000 };
@@ -7452,7 +7515,7 @@
     var b = player.activeBuffs;
     switch (skill.id) {
       case 'oath':
-        b.oath = { until: now + 3000, healPerSec: 25/3, lastTick: now };
+        b.oath = { until: now + 3000, healPerSec: 10, lastTick: now };
         break;
       default:
         b[skill.id] = { until: now + 3000, healPerSec: 8, lastTick: now };
@@ -7466,12 +7529,12 @@
       case 'shield_bash':
         player.wx += face * 90;
         player.dodgeUntil = now + 350;
-        // Apply stun to any nearby enemy
+        // Apply stun + 18 dmg to any nearby enemy.
         wandererEnemies.forEach(function (en) {
           if (en.hp > 0 && Math.abs(en.wx - player.wx) < 70) {
             en.stunUntil = Math.max(en.stunUntil || 0, now + 500);
-            en.hp = Math.max(0, en.hp - 12);
-            addPopup(en, '-12', '#ffd34d');
+            en.hp = Math.max(0, en.hp - 18);
+            addPopup(en, '-18', '#ffd34d');
             if (en.hp <= 0) wandererOnEnemyKill(en);
           }
         });
@@ -7484,6 +7547,11 @@
       case 'roll':
         player.wx += face * 120;
         player.dodgeUntil = now + 500;
+        // Drop a smoke cloud at the landing site that ticks damage and
+        // slows anyone inside it for its lifetime.
+        wandererAoe.push({ wx: player.wx, wy: -40, r: 0, maxR: 70, born: now, life: 1200,
+          color: '#cccccc', dmg: 10, owner: 'player', hits: [], kind: 'smoke',
+          extraStatus: 'slow', extraStatusDur: 600, slowMult: 0.5 });
         break;
       case 'iaido':
         player.wx += face * 80;
@@ -7512,8 +7580,8 @@
       case 'leap':
         player.vy = WANDERER_JUMP_VEL * 1.3;
         player.dodgeUntil = now + 400;
-        // Schedule slam: when player.wy returns to 0, ring damage
-        player.activeBuffs.leapPending = { until: now + 2000, slamDmg: 35 };
+        // Schedule slam: when player.wy returns to 0, ring damage + shake.
+        player.activeBuffs.leapPending = { until: now + 2000, slamDmg: 35, slamShake: 18 };
         break;
       case 'execute':
         // Find nearest low-hp enemy
@@ -7529,7 +7597,10 @@
           var dmg = (bestTarget.hp / bestTarget.maxHp) < 0.3 ? 999 : 30;
           bestTarget.hp = Math.max(0, bestTarget.hp - dmg);
           addPopup(bestTarget, dmg >= 999 ? 'EXECUTE!' : ('-' + dmg), '#ff3060');
-          if (bestTarget.hp <= 0) wandererOnEnemyKill(bestTarget);
+          if (bestTarget.hp <= 0) {
+            shake = Math.max(shake, 28);
+            wandererOnEnemyKill(bestTarget);
+          }
         } else {
           player.wx += face * 100;
         }
@@ -7555,9 +7626,10 @@
             b.lastTick = now;
           }
         } else if (k === 'leapPending' && player.wy === 0 && player.vy === 0) {
-          // Land — emit slam ring
+          // Land — emit slam ring + shake.
           wandererAoe.push({ wx: player.wx, wy: -50, r: 10, maxR: 160, born: now, life: 500,
-            color: '#ff8030', dmg: b.slamDmg || 30, owner: 'player', hits: [], kind: 'slam' });
+            color: '#ffaa30', dmg: b.slamDmg || 30, owner: 'player', hits: [], kind: 'slam' });
+          shake = Math.max(shake, b.slamShake || 16);
           delete player.activeBuffs[k];
         }
       }
@@ -7568,15 +7640,23 @@
       var age = now - a.born;
       if (age < (a.delay || 0)) continue; // wait for telegraph
       a.r = Math.min(a.maxR, a.r + (a.maxR / Math.max(1, a.life)) * dt);
-      // Damage check (once per enemy)
-      if (a.kind !== 'wall') {
+      // Damage check (once per enemy). Walls only damage if dealsDamage is set
+      // (Wind Cutter slash line uses this); pure blocking walls skip the scan.
+      var canDamage = a.kind !== 'wall' || a.dealsDamage;
+      if (canDamage) {
         wandererEnemies.forEach(function (en) {
           if (en.hp <= 0) return;
           if (a.hits.indexOf(en) !== -1) return;
           var dx = en.wx - a.wx;
           var dy = (-en.wy - 50) - a.wy;
-          var dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < a.r) {
+          var inside;
+          if (a.kind === 'wall') {
+            // Rectangular hitbox for walls.
+            inside = Math.abs(dx) < (a.wallW || 14) / 2 + 18 && Math.abs(dy) < (a.wallH || 80) / 2 + 20;
+          } else {
+            inside = Math.sqrt(dx*dx + dy*dy) < a.r;
+          }
+          if (inside) {
             var dmg = a.dmg || 0;
             // BUFF damage modifiers
             if (player.activeBuffs && player.activeBuffs.rage) dmg = Math.round(dmg * (player.activeBuffs.rage.dmgMult || 1));
@@ -7598,6 +7678,18 @@
               en.poisonTick = now + 500;
               en.poisonDmg = a.statusTickDmg || 3;
             }
+            // Optional secondary status (e.g. curse + slow, smoke + slow).
+            if (a.extraStatus === 'slow') {
+              en.slowUntil = now + (a.extraStatusDur || 600);
+              en.slowMult  = a.slowMult || 0.5;
+            }
+            // Knockback impulse (Iron Will shockwave).
+            if (a.knockback) {
+              var dirX = dx >= 0 ? 1 : -1;
+              en.wx += dirX * a.knockback;
+            }
+            // Big-hit screen shake (Meteor crash).
+            if (a.shakeOnHit) shake = Math.max(shake, a.shakeOnHit);
             a.hits.push(en);
             if (en.hp <= 0) wandererOnEnemyKill(en);
           }
@@ -7636,7 +7728,14 @@
         en.hp = Math.max(0, en.hp - (en.poisonDmg || 3));
         addPopup(en, '-' + (en.poisonDmg || 3), '#80ff80');
         en.poisonTick = now + 500;
-        if (en.hp <= 0) wandererOnEnemyKill(en);
+        if (en.hp <= 0) wandererOnEnemyKill(en, en.poisonSource || 'poison');
+      }
+      // Bleed mirrors poison but ticks red — used by Lance Stab.
+      if (en.bleedUntil && now < en.bleedUntil && now > (en.bleedTick || 0)) {
+        en.hp = Math.max(0, en.hp - (en.bleedDmg || 5));
+        addPopup(en, '-' + (en.bleedDmg || 5), '#ff5050');
+        en.bleedTick = now + 500;
+        if (en.hp <= 0) wandererOnEnemyKill(en, 'bleed');
       }
     });
   }
@@ -7807,6 +7906,7 @@
       e.facingDir = dx > 0 ? 1 : -1;
       var frozen = e.frozenUntil && now < e.frozenUntil;
       var stunned = e.stunUntil && now < e.stunUntil;
+      var slowed  = e.slowUntil  && now < e.slowUntil;
       // Aggro state machine
       if (!e.aggro && dist < AGGRO_RANGE) e.aggro = true;
       else if (e.aggro && dist > DEAGGRO_RANGE) e.aggro = false;
@@ -7814,7 +7914,8 @@
       if (frozen || stunned) {
         e.vx = 0;
       } else if (e.aggro && dist > 110) {
-        e.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7;
+        var slowFactor = slowed ? (e.slowMult || 0.5) : 1;
+        e.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7 * slowFactor;
       } else {
         e.vx = 0;
       }
@@ -7850,6 +7951,28 @@
     var rageMult = (player.activeBuffs && player.activeBuffs.rage) ? (player.activeBuffs.rage.dmgMult || 1) : 1;
     for (var pi = wandererProjectiles.length - 1; pi >= 0; pi--) {
       var pr = wandererProjectiles[pi];
+      // Soul Rip wisp: homes back to the player and heals on contact.
+      // Doesn't interact with enemies at all.
+      if (pr.wisp) {
+        var wdx = player.wx - pr.wx;
+        var wdy = (-player.wy - 50) - pr.wy;
+        var wlen = Math.sqrt(wdx * wdx + wdy * wdy) || 1;
+        var wspd = 0.55;
+        pr.vx = (wdx / wlen) * wspd;
+        pr.vy = (wdy / wlen) * wspd;
+        pr.wx += pr.vx * dt;
+        pr.wy += pr.vy * dt;
+        pr.life -= dt;
+        if (wlen < 28 || pr.life <= 0) {
+          if (wlen < 28) {
+            player.hp = Math.min(player.maxHp || MAX_HP, player.hp + (pr.healAmt || 5));
+            addPopup(player, '+' + (pr.healAmt || 5), '#a060ff');
+            addFlash(player, '#a060ff', 70);
+          }
+          wandererProjectiles.splice(pi, 1);
+        }
+        continue;
+      }
       // Tracking projectiles steer toward nearest enemy
       if (pr.tracking && pr.owner === 'player') {
         var bestEn = null, bestDD = 9999;
@@ -7870,6 +7993,13 @@
         }
       }
       var moveDt = (pr.owner === 'enemy') ? (dt * globalTimeScale) : dt;
+      // Trail buffer for visual flair on flagged projectiles. Cap length
+      // so memory stays bounded and the older entries fade in the renderer.
+      if (pr.trail) {
+        if (!pr.trailBuf) pr.trailBuf = [];
+        pr.trailBuf.push({ wx: pr.wx, wy: pr.wy });
+        if (pr.trailBuf.length > 7) pr.trailBuf.shift();
+      }
       pr.wx += pr.vx * moveDt;
       pr.wy += pr.vy * moveDt;
       pr.life -= moveDt;
@@ -7920,6 +8050,16 @@
               en.poisonUntil = now + (pr.statusDur || 4000);
               en.poisonTick = now + 500;
               en.poisonDmg = pr.statusTickDmg || 3;
+              if (pr.poisonSpread) en.poisonSource = 'venom-spread';
+            }
+            if (pr.status === 'bleed') {
+              en.bleedUntil = now + (pr.statusDur || 2000);
+              en.bleedTick = now + 500;
+              en.bleedDmg = pr.statusTickDmg || 5;
+            }
+            if (pr.status === 'slow') {
+              en.slowUntil = now + (pr.statusDur || 500);
+              en.slowMult  = pr.slowMult || 0.4;
             }
             // Lifesteal
             if (pr.lifesteal) player.hp = Math.min(player.maxHp || MAX_HP, player.hp + Math.round(dmg * 0.5));
@@ -7928,13 +8068,17 @@
               wandererAoe.push({ wx: pr.wx, wy: pr.wy, r: 10, maxR: 90, born: now, life: 350,
                 color: '#ff8030', dmg: Math.round(pr.dmg * 0.6 * rageMult), owner: 'player', hits: [], kind: 'explode' });
             }
-            if (en.hp <= 0) wandererOnEnemyKill(en);
+            if (en.hp <= 0) wandererOnEnemyKill(en, pr.skillId);
             pr.hits.push(en);
             hitOne = true;
+            // Pierce: keep flying unless we've hit our cap (e.g. Wind Cutter
+            // pierces 2 enemies — pierceCap caps the chain).
+            var hitCap = pr.pierceCap || 99;
             if (!pr.piercing) break;
+            if (pr.hits.length >= hitCap) break;
           }
         }
-        if (hitOne && !pr.piercing) wandererProjectiles.splice(pi, 1);
+        if (hitOne && (!pr.piercing || pr.hits.length >= (pr.pierceCap || 99))) wandererProjectiles.splice(pi, 1);
       } else {
         // Enemy projectile vs player
         var pScreenY = -player.wy - 50;
@@ -7985,12 +8129,39 @@
     });
   }
 
-  function wandererOnEnemyKill(en) {
+  function wandererOnEnemyKill(en, source) {
     wandererState.killed += 1;
     profile.coins += WANDERER_REWARD_PER_KILL;
     profile.stats.totalCoinsEarned = (profile.stats.totalCoinsEarned || 0) + WANDERER_REWARD_PER_KILL;
     addPopup(en, '+' + WANDERER_REWARD_PER_KILL + ' 🪙', '#ffd34d');
     awardXp(25, 'wanderer-kill');
+    // Soul Rip: kills leave a healing wisp that homes back to the player.
+    if (source === 'soulrip') {
+      wandererProjectiles.push({
+        wx: en.wx, wy: -en.wy - 50,
+        vx: 0, vy: 0,
+        dmg: 0, owner: 'player', type: 'soul_wisp', skillId: 'soul_wisp',
+        color: '#c89aff', color2: '#400080', radius: 10, life: 5000,
+        wisp: true, healAmt: 5, trail: true
+      });
+    }
+    // Venom Arrow: poison spreads on kill — adjacent enemies catch a fresh
+    // poison stack from the deceased target.
+    if ((source === 'venom' || source === 'venom-spread') && en.poisonUntil) {
+      var nowS = performance.now();
+      wandererEnemies.forEach(function (other) {
+        if (other === en || other.hp <= 0) return;
+        if (Math.abs(other.wx - en.wx) > 140) return;
+        // Don't re-spread once already infected from a spread, to keep it
+        // bounded — only fresh victims pick it up.
+        if (other.poisonUntil && other.poisonUntil > nowS) return;
+        other.poisonUntil = nowS + 3000;
+        other.poisonTick = nowS + 500;
+        other.poisonDmg = 4;
+        other.poisonSource = 'venom-spread';
+        addPopup(other, 'INFECTED', '#5fff80');
+      });
+    }
     saveProfile();
   }
 
@@ -8142,9 +8313,10 @@
       }
       if (a.kind === 'wall') {
         var wAlpha = Math.min(1, (a.life - (now - a.born)) / 600);
-        ctx.fillStyle = 'rgba(180,180,180,' + (0.3 + 0.5 * wAlpha) + ')';
+        var wallCol = a.color || '#b4b4b4';
+        ctx.fillStyle = hexA(wallCol, 0.3 + 0.5 * wAlpha);
         ctx.fillRect(ax - (a.wallW||14)/2, ay - (a.wallH||110), a.wallW || 14, a.wallH || 110);
-        ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
+        ctx.strokeStyle = wallCol; ctx.lineWidth = 2;
         ctx.strokeRect(ax - (a.wallW||14)/2, ay - (a.wallH||110), a.wallW || 14, a.wallH || 110);
         return;
       }
@@ -8166,6 +8338,20 @@
     wandererProjectiles.forEach(function (pr) {
       var sx = pr.wx - camX;
       var sy = groundScreenY + pr.wy;
+      // Fading trail behind flagged projectiles. Older entries are dimmer
+      // and smaller — gives the projectile a sense of motion.
+      if (pr.trailBuf && pr.trailBuf.length) {
+        var n = pr.trailBuf.length;
+        for (var ti = 0; ti < n; ti++) {
+          var t = pr.trailBuf[ti];
+          var tsx = t.wx - camX;
+          var tsy = groundScreenY + t.wy;
+          var k = (ti + 1) / (n + 1);
+          ctx.fillStyle = hexA(pr.color || '#fff', 0.18 + 0.32 * k);
+          var rr = Math.max(2, ((pr.radius || 12) * 0.55) * k);
+          ctx.beginPath(); ctx.arc(tsx, tsy, rr, 0, Math.PI * 2); ctx.fill();
+        }
+      }
       drawWandererProjectile(pr, sx, sy);
     });
     // HUD: HP bar + kill count
@@ -8277,6 +8463,16 @@
       ctx.beginPath();
       ctx.moveTo(-10, -10); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-10, 10);
       ctx.closePath(); ctx.fill();
+    } else if (pr.type === 'soul_wisp') {
+      // Pulsing purple orb, drawn unrotated for visibility.
+      ctx.rotate(-angle);
+      var pulse = 0.7 + 0.3 * Math.sin(performance.now() * 0.012);
+      var grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 12 * pulse);
+      grd.addColorStop(0, '#fff');
+      grd.addColorStop(0.5, pr.color);
+      grd.addColorStop(1, 'rgba(64,0,128,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(0, 0, 12 * pulse, 0, Math.PI * 2); ctx.fill();
     } else {
       // Default sword: a thin glowing line
       ctx.strokeStyle = pr.color;
