@@ -7283,61 +7283,71 @@
       e.aggro = false;
       wandererEnemies.push(e);
     }
-    // Step-on obstacles — Mario-style mix. Every entry is {wx,wy,w,h,kind}
-    // so the existing AABB collision handles them; only the renderer (and
-    // the spring branch in collision) cares about `kind`.
-    // -- 4 wood platforms, now reaching closer to the jump ceiling (~197 wy).
-    for (var p = 0; p < 4; p++) {
-      var wpx = startX + 220 + p * 250 + Math.random() * 60;
+    // Step-on obstacles — Mario-style mix, packed tight. Every entry is
+    // {wx,wy,w,h,kind} so the existing AABB collision handles them; only
+    // the renderer (and the spring branch in collision) cares about `kind`.
+    // -- 7 wood platforms (was 4) reaching the full jump ceiling.
+    for (var p = 0; p < 7; p++) {
+      var wpx = startX + 80 + p * 120 + Math.random() * 50;
       var wpy = 90 + Math.random() * 100; // 90..190
       wandererPlatforms.push({ kind: 'wood', wx: wpx, wy: wpy,
-        w: 80 + Math.random() * 60, h: 18 });
+        w: 70 + Math.random() * 60, h: 18 });
     }
-    // -- 3 ground crates.
-    var crateAnchors = [180, 420, 780];
+    // -- 5 ground crates (was 3).
+    var crateAnchors = [120, 260, 420, 580, 760];
     for (var c = 0; c < crateAnchors.length; c++) {
-      var cpx = startX + crateAnchors[c] + (Math.random() * 80 - 40);
+      var cpx = startX + crateAnchors[c] + (Math.random() * 60 - 30);
       wandererPlatforms.push({ kind: 'crate', wx: cpx, wy: 0, w: 42, h: 42 });
     }
-    // -- 2 stones.
-    for (var s = 0; s < 2; s++) {
-      var spx = startX + 320 + s * 320 + Math.random() * 60;
+    // -- 4 stones (was 2).
+    for (var s = 0; s < 4; s++) {
+      var spx = startX + 200 + s * 180 + Math.random() * 60;
       wandererPlatforms.push({ kind: 'stone', wx: spx, wy: 24 + Math.random() * 14,
-        w: 100 + Math.random() * 30, h: 24 });
+        w: 90 + Math.random() * 30, h: 24 });
     }
-    // -- 1 stump.
-    wandererPlatforms.push({ kind: 'stump',
-      wx: startX + 540 + Math.random() * 60, wy: 50 + Math.random() * 12,
-      w: 48, h: 20 });
-    // -- 2 green pipes (one tall, one short). They sit on the ground; player
-    // lands on the rim. wy = pipe height so the rim is at top.
-    wandererPlatforms.push({ kind: 'pipe',
-      wx: startX + 110 + Math.random() * 30, wy: 140, w: 56, h: 140 });
-    wandererPlatforms.push({ kind: 'pipe',
-      wx: startX + 660 + Math.random() * 30, wy: 80,  w: 50, h: 80 });
-    // -- 2 brick stacks (stair-step). 2..4 bricks each, stacked vertically.
-    for (var bk = 0; bk < 2; bk++) {
-      var stackX = startX + 360 + bk * 300 + Math.random() * 40;
+    // -- 3 stumps (was 1).
+    for (var stk = 0; stk < 3; stk++) {
+      wandererPlatforms.push({ kind: 'stump',
+        wx: startX + 200 + stk * 240 + Math.random() * 60,
+        wy: 50 + Math.random() * 14,
+        w: 48, h: 20 });
+    }
+    // -- 3 green pipes (was 2). Heights vary (tall / mid / short).
+    var pipeHeights = [140, 100, 80];
+    for (var pi = 0; pi < pipeHeights.length; pi++) {
+      var ppx = startX + 110 + pi * 280 + Math.random() * 30;
+      wandererPlatforms.push({ kind: 'pipe',
+        wx: ppx, wy: pipeHeights[pi], w: 50 + (pi === 0 ? 6 : 0), h: pipeHeights[pi] });
+    }
+    // -- 3 brick stacks (was 2), 2..4 bricks each.
+    for (var bk = 0; bk < 3; bk++) {
+      var stackX = startX + 240 + bk * 220 + Math.random() * 40;
       var stackH = 2 + Math.floor(Math.random() * 3); // 2..4 bricks
       for (var bi = 0; bi < stackH; bi++) {
         wandererPlatforms.push({ kind: 'brick', wx: stackX, wy: 32 + bi * 32,
           w: 40, h: 32 });
       }
     }
-    // -- 2 question blocks at low and high heights.
-    wandererPlatforms.push({ kind: 'qblock', wx: startX + 270 + Math.random() * 30,
-      wy: 90,  w: 38, h: 38 });
-    wandererPlatforms.push({ kind: 'qblock', wx: startX + 590 + Math.random() * 30,
-      wy: 160, w: 38, h: 38 });
-    // -- 1 spring mushroom (bouncy). Special collision in the platform AABB
-    // block boosts vy when the player lands on it.
-    wandererPlatforms.push({ kind: 'spring',
-      wx: startX + 470 + Math.random() * 40, wy: 32, w: 38, h: 32 });
-    // -- 1 cloud platform near the top of the jump arc — the "tall reward".
-    wandererPlatforms.push({ kind: 'cloud',
-      wx: startX + 510 + Math.random() * 60, wy: 175 + Math.random() * 12,
-      w: 80, h: 18 });
-    wandererState.lastSpawnX = startX + 620;
+    // -- 4 question blocks (was 2) at varied heights.
+    var qHeights = [90, 130, 160, 190];
+    for (var qi = 0; qi < qHeights.length; qi++) {
+      wandererPlatforms.push({ kind: 'qblock',
+        wx: startX + 200 + qi * 180 + Math.random() * 30,
+        wy: qHeights[qi], w: 38, h: 38 });
+    }
+    // -- 2 spring mushrooms (was 1). Bouncy on landing.
+    for (var sp = 0; sp < 2; sp++) {
+      wandererPlatforms.push({ kind: 'spring',
+        wx: startX + 300 + sp * 320 + Math.random() * 40, wy: 32, w: 38, h: 32 });
+    }
+    // -- 2 cloud platforms (was 1) up near the jump ceiling.
+    for (var cl = 0; cl < 2; cl++) {
+      wandererPlatforms.push({ kind: 'cloud',
+        wx: startX + 260 + cl * 280 + Math.random() * 60,
+        wy: 175 + Math.random() * 14,
+        w: 80, h: 18 });
+    }
+    wandererState.lastSpawnX = startX + 500;
   }
 
   function tryWandererShield() {
