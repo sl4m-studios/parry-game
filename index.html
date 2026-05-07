@@ -7283,34 +7283,61 @@
       e.aggro = false;
       wandererEnemies.push(e);
     }
-    // Step-on obstacles — denser & with kind variety. All share the same
-    // {wx,wy,w,h} shape so the platform AABB collision handles them with no
-    // changes; only the renderer cares about `kind`.
-    // 4 wood platforms (the original style) at high jump heights.
+    // Step-on obstacles — Mario-style mix. Every entry is {wx,wy,w,h,kind}
+    // so the existing AABB collision handles them; only the renderer (and
+    // the spring branch in collision) cares about `kind`.
+    // -- 4 wood platforms, now reaching closer to the jump ceiling (~197 wy).
     for (var p = 0; p < 4; p++) {
       var wpx = startX + 220 + p * 250 + Math.random() * 60;
-      var wpy = 70 + Math.random() * 70; // 70..140
+      var wpy = 90 + Math.random() * 100; // 90..190
       wandererPlatforms.push({ kind: 'wood', wx: wpx, wy: wpy,
         w: 80 + Math.random() * 60, h: 18 });
     }
-    // 3 ground crates — small step-ups sitting on the floor.
+    // -- 3 ground crates.
     var crateAnchors = [180, 420, 780];
     for (var c = 0; c < crateAnchors.length; c++) {
       var cpx = startX + crateAnchors[c] + (Math.random() * 80 - 40);
-      wandererPlatforms.push({ kind: 'crate', wx: cpx, wy: 0,
-        w: 42, h: 42 });
+      wandererPlatforms.push({ kind: 'crate', wx: cpx, wy: 0, w: 42, h: 42 });
     }
-    // 2 stones — chunkier mid-low blocks for rock-hopping between platforms.
+    // -- 2 stones.
     for (var s = 0; s < 2; s++) {
       var spx = startX + 320 + s * 320 + Math.random() * 60;
       wandererPlatforms.push({ kind: 'stone', wx: spx, wy: 24 + Math.random() * 14,
         w: 100 + Math.random() * 30, h: 24 });
     }
-    // 1 stump — small round-ish ledge near the middle of the section.
+    // -- 1 stump.
     wandererPlatforms.push({ kind: 'stump',
       wx: startX + 540 + Math.random() * 60, wy: 50 + Math.random() * 12,
       w: 48, h: 20 });
-    wandererState.lastSpawnX = startX + 700;
+    // -- 2 green pipes (one tall, one short). They sit on the ground; player
+    // lands on the rim. wy = pipe height so the rim is at top.
+    wandererPlatforms.push({ kind: 'pipe',
+      wx: startX + 110 + Math.random() * 30, wy: 140, w: 56, h: 140 });
+    wandererPlatforms.push({ kind: 'pipe',
+      wx: startX + 660 + Math.random() * 30, wy: 80,  w: 50, h: 80 });
+    // -- 2 brick stacks (stair-step). 2..4 bricks each, stacked vertically.
+    for (var bk = 0; bk < 2; bk++) {
+      var stackX = startX + 360 + bk * 300 + Math.random() * 40;
+      var stackH = 2 + Math.floor(Math.random() * 3); // 2..4 bricks
+      for (var bi = 0; bi < stackH; bi++) {
+        wandererPlatforms.push({ kind: 'brick', wx: stackX, wy: 32 + bi * 32,
+          w: 40, h: 32 });
+      }
+    }
+    // -- 2 question blocks at low and high heights.
+    wandererPlatforms.push({ kind: 'qblock', wx: startX + 270 + Math.random() * 30,
+      wy: 90,  w: 38, h: 38 });
+    wandererPlatforms.push({ kind: 'qblock', wx: startX + 590 + Math.random() * 30,
+      wy: 160, w: 38, h: 38 });
+    // -- 1 spring mushroom (bouncy). Special collision in the platform AABB
+    // block boosts vy when the player lands on it.
+    wandererPlatforms.push({ kind: 'spring',
+      wx: startX + 470 + Math.random() * 40, wy: 32, w: 38, h: 32 });
+    // -- 1 cloud platform near the top of the jump arc — the "tall reward".
+    wandererPlatforms.push({ kind: 'cloud',
+      wx: startX + 510 + Math.random() * 60, wy: 175 + Math.random() * 12,
+      w: 80, h: 18 });
+    wandererState.lastSpawnX = startX + 620;
   }
 
   function tryWandererShield() {
@@ -7876,14 +7903,23 @@
     } else {
       player.onGround = false;
     }
-    // Platform collision (one-way: only when falling onto top)
+    // Platform collision (one-way: only when falling onto top). Spring
+    // mushrooms launch the player back up instead of stopping the fall.
     if (player.vy > 0) {
       for (var i = 0; i < wandererPlatforms.length; i++) {
         var pl = wandererPlatforms[i];
         var prevY = player.wy + player.vy * dt;
         if (player.wx > pl.wx - pl.w/2 - 20 && player.wx < pl.wx + pl.w/2 + 20) {
           if (player.wy <= pl.wy && prevY >= pl.wy - 4) {
-            player.wy = pl.wy; player.vy = 0; player.onGround = true;
+            if (pl.kind === 'spring') {
+              player.wy = pl.wy;
+              player.vy = WANDERER_JUMP_VEL * 1.6;
+              player.onGround = false;
+              addFlash(player, '#ff6060', 60);
+              playHit();
+            } else {
+              player.wy = pl.wy; player.vy = 0; player.onGround = true;
+            }
           }
         }
       }
@@ -8192,19 +8228,77 @@
     if (!wandererState || !player) return;
     var camX = wandererState.camX;
     var groundScreenY = cssH * 0.70;
-    // Sky background already drawn by drawBg/drawFloor; add horizon line
-    // Draw ground line — feet land at groundScreenY when wy=0, so dirt starts there
-    ctx.fillStyle = '#2a2244';
-    ctx.fillRect(0, groundScreenY, cssW, cssH - groundScreenY);
-    // Bright top edge so the floor reads as solid ground
-    ctx.fillStyle = '#1a0f28';
-    ctx.fillRect(0, groundScreenY, cssW, 3);
-    // Distant parallax stripes
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    for (var i = 0; i < 6; i++) {
-      var sx = ((i * 220 - camX * 0.3) % (cssW + 220)) - 110;
-      ctx.fillRect(sx, groundScreenY - 80, 80, 80);
+    // ---- Layered backdrop (back to front) ----
+    // 1) Sunset sky gradient covering everything above the ground.
+    var skyGrd = ctx.createLinearGradient(0, 0, 0, groundScreenY);
+    skyGrd.addColorStop(0,    '#3a4a90'); // twilight blue
+    skyGrd.addColorStop(0.55, '#ff9560'); // peach
+    skyGrd.addColorStop(1,    '#ffd28a'); // amber horizon
+    ctx.fillStyle = skyGrd;
+    ctx.fillRect(0, 0, cssW, groundScreenY);
+    // 2) Sun — fixed in screen space, soft glow + core.
+    var sunCx = cssW * 0.82, sunCy = groundScreenY * 0.28;
+    var sunGlow = ctx.createRadialGradient(sunCx, sunCy, 6, sunCx, sunCy, 90);
+    sunGlow.addColorStop(0,   'rgba(255,240,180,0.95)');
+    sunGlow.addColorStop(0.4, 'rgba(255,210,120,0.5)');
+    sunGlow.addColorStop(1,   'rgba(255,180,100,0)');
+    ctx.fillStyle = sunGlow;
+    ctx.fillRect(sunCx - 90, sunCy - 90, 180, 180);
+    ctx.fillStyle = '#fff4c0';
+    ctx.beginPath(); ctx.arc(sunCx, sunCy, 28, 0, Math.PI * 2); ctx.fill();
+    // 3) Distant mountains — slow parallax, indigo silhouette.
+    ctx.fillStyle = '#1c1838';
+    var mtnY = groundScreenY - 60;
+    var mtnOff = -((camX * 0.08) % 320);
+    for (var mi = -1; mi < (cssW / 320) + 2; mi++) {
+      var mx = mi * 320 + mtnOff;
+      ctx.beginPath();
+      ctx.moveTo(mx, mtnY);
+      ctx.lineTo(mx + 80,  mtnY - 70);
+      ctx.lineTo(mx + 130, mtnY - 30);
+      ctx.lineTo(mx + 180, mtnY - 90);
+      ctx.lineTo(mx + 240, mtnY - 40);
+      ctx.lineTo(mx + 320, mtnY);
+      ctx.closePath(); ctx.fill();
     }
+    // 4) Mid hills — parallax 0.18, deep green w/ light top stripe.
+    var hillsY = groundScreenY - 30;
+    var hillOff = -((camX * 0.18) % 260);
+    for (var hi = -1; hi < (cssW / 260) + 2; hi++) {
+      var hx = hi * 260 + hillOff;
+      ctx.fillStyle = '#2d6a35';
+      ctx.beginPath();
+      ctx.arc(hx + 130, hillsY + 50, 130, Math.PI, 0, false);
+      ctx.closePath(); ctx.fill();
+      // light cap
+      ctx.fillStyle = '#3f9050';
+      ctx.beginPath();
+      ctx.arc(hx + 130, hillsY + 50, 130, Math.PI + 0.05, 0 - 0.05, false);
+      ctx.lineTo(hx + 260, hillsY + 50);
+      ctx.lineTo(hx, hillsY + 50);
+      ctx.closePath();
+    }
+    // 5) Clouds — parallax 0.30 + slow drift, puffy circles.
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    var cloudT = now * 0.005;
+    for (var ci = 0; ci < 6; ci++) {
+      var raw = ci * 280 + cloudT - camX * 0.30;
+      var cx = ((raw % (cssW + 320)) + (cssW + 320)) % (cssW + 320) - 160;
+      var cy = 60 + (ci * 47) % 80;
+      ctx.beginPath();
+      ctx.arc(cx,       cy,     22, 0, Math.PI * 2);
+      ctx.arc(cx + 22,  cy - 8, 26, 0, Math.PI * 2);
+      ctx.arc(cx + 50,  cy,     20, 0, Math.PI * 2);
+      ctx.arc(cx + 30,  cy + 6, 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // 6) Foreground ground: Mario-green grass top + dirt body + bright crown.
+    ctx.fillStyle = '#7a4624';
+    ctx.fillRect(0, groundScreenY, cssW, cssH - groundScreenY);
+    ctx.fillStyle = '#3da848';
+    ctx.fillRect(0, groundScreenY, cssW, 18);
+    ctx.fillStyle = '#aafa6a';
+    ctx.fillRect(0, groundScreenY, cssW, 3);
     // Platforms / step-on obstacles. Branches on pl.kind for visuals;
     // collision is shared and lives in the wanderer update tick.
     wandererPlatforms.forEach(function (pl) {
@@ -8242,6 +8336,82 @@
         ctx.fillRect(sx, sy, pl.w, 4);
         ctx.fillStyle = '#8a5a30';
         ctx.fillRect(sx + 4, sy + 2, pl.w - 8, 2);
+      } else if (kind === 'pipe') {
+        // Mario green pipe: body + wider rim cap on top.
+        ctx.fillStyle = '#1d781d';
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        ctx.fillStyle = '#2dba2d';
+        ctx.fillRect(sx + 3, sy, pl.w - 6, pl.h);
+        // Highlight stripe down the left for depth.
+        ctx.fillStyle = '#5fe05f';
+        ctx.fillRect(sx + 5, sy, 4, pl.h);
+        // Rim cap (wider) — this is what the player lands on.
+        var rimW = pl.w + 12;
+        ctx.fillStyle = '#1d781d';
+        ctx.fillRect(sx - 6, sy - 12, rimW, 14);
+        ctx.fillStyle = '#2dba2d';
+        ctx.fillRect(sx - 4, sy - 10, rimW - 4, 10);
+        ctx.fillStyle = '#5fe05f';
+        ctx.fillRect(sx - 2, sy - 9, 6, 7);
+      } else if (kind === 'brick') {
+        // Orange brick with mortar grid.
+        ctx.fillStyle = '#8a3210';
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        ctx.fillStyle = '#c0532a';
+        ctx.fillRect(sx + 1, sy + 1, pl.w - 2, pl.h - 2);
+        // Mortar lines: horizontal mid + vertical centres on each row.
+        ctx.fillStyle = '#8a3210';
+        ctx.fillRect(sx, sy + Math.floor(pl.h / 2), pl.w, 1);
+        ctx.fillRect(sx + Math.floor(pl.w / 4), sy, 1, Math.floor(pl.h / 2));
+        ctx.fillRect(sx + Math.floor(3 * pl.w / 4), sy, 1, Math.floor(pl.h / 2));
+        ctx.fillRect(sx + Math.floor(pl.w / 2), sy + Math.floor(pl.h / 2), 1, Math.floor(pl.h / 2));
+      } else if (kind === 'qblock') {
+        // ? block: yellow body, dark border, centred '?' glyph.
+        ctx.fillStyle = '#8a4810';
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        ctx.fillStyle = '#ffb030';
+        ctx.fillRect(sx + 3, sy + 3, pl.w - 6, pl.h - 6);
+        // Inner highlight
+        ctx.fillStyle = '#ffd870';
+        ctx.fillRect(sx + 5, sy + 5, pl.w - 10, 4);
+        // Glyph
+        ctx.fillStyle = '#3a1f00';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', sx + pl.w / 2, sy + pl.h / 2 + 1);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+      } else if (kind === 'spring') {
+        // Bouncy mushroom: tan stem (bottom 1/3), red dome with white spots.
+        var stemH = Math.max(8, Math.floor(pl.h * 0.4));
+        var stemW = Math.max(10, Math.floor(pl.w * 0.5));
+        var stemX = sx + (pl.w - stemW) / 2;
+        ctx.fillStyle = '#f0d8a0';
+        ctx.fillRect(stemX, sy + pl.h - stemH, stemW, stemH);
+        ctx.fillStyle = '#caa470';
+        ctx.fillRect(stemX, sy + pl.h - stemH, 3, stemH);
+        // Red dome
+        ctx.fillStyle = '#a01818';
+        ctx.fillRect(sx, sy, pl.w, pl.h - stemH);
+        ctx.fillStyle = '#e02828';
+        ctx.fillRect(sx + 2, sy + 2, pl.w - 4, pl.h - stemH - 2);
+        // Spots
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(sx + pl.w * 0.25, sy + (pl.h - stemH) * 0.55, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx + pl.w * 0.65, sy + (pl.h - stemH) * 0.45, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx + pl.w * 0.85, sy + (pl.h - stemH) * 0.6, 3, 0, Math.PI * 2); ctx.fill();
+      } else if (kind === 'cloud') {
+        // Cloud platform: 3 puffs + soft shadow underline (so it still
+        // reads as solid step-on).
+        ctx.fillStyle = 'rgba(120,140,180,0.35)';
+        ctx.fillRect(sx + 6, sy + pl.h - 2, pl.w - 12, 2);
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(sx + pl.w * 0.22, sy + pl.h * 0.55, pl.h * 0.85, 0, Math.PI * 2);
+        ctx.arc(sx + pl.w * 0.55, sy + pl.h * 0.40, pl.h * 1.05, 0, Math.PI * 2);
+        ctx.arc(sx + pl.w * 0.82, sy + pl.h * 0.55, pl.h * 0.80, 0, Math.PI * 2);
+        ctx.fill();
       } else {
         // wood (default / legacy)
         var grd = ctx.createLinearGradient(sx, sy, sx, sy + pl.h);
