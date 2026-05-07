@@ -7950,16 +7950,61 @@
       e.vy += WANDERER_GRAVITY * enemyDt;
       e.wx += e.vx * enemyDt;
       e.wy -= e.vy * enemyDt;
-      if (e.wy <= 0) { e.wy = 0; e.vy = 0; }
+      // Ground collision.
+      if (e.wy <= 0) { e.wy = 0; e.vy = 0; e.onGround = true; }
+      else { e.onGround = false; }
+      // Platform collision for enemies (one-way, mirrors the player path so
+      // enemies can stand on / chase across the same platforms the player
+      // jumps to). Spring mushrooms launch them too.
+      if (e.vy > 0) {
+        for (var epi = 0; epi < wandererPlatforms.length; epi++) {
+          var epl = wandererPlatforms[epi];
+          var ePrevY = e.wy + e.vy * enemyDt;
+          if (e.wx > epl.wx - epl.w/2 - 18 && e.wx < epl.wx + epl.w/2 + 18) {
+            if (e.wy <= epl.wy && ePrevY >= epl.wy - 4) {
+              if (epl.kind === 'spring') {
+                e.wy = epl.wy;
+                e.vy = WANDERER_JUMP_VEL * 1.4;
+                e.onGround = false;
+              } else {
+                e.wy = epl.wy; e.vy = 0; e.onGround = true;
+              }
+            }
+          }
+        }
+      }
+      // Jump AI: aggro'd enemy on the ground attempts a jump toward the
+      // player when the player is meaningfully higher. Cooldown prevents
+      // rapid-fire spamming and gives them a chance to actually land.
+      e.aiJumpCooldown = (e.aiJumpCooldown || 0) - enemyDt;
+      if (!frozen && !stunned && e.aggro && e.onGround && e.aiJumpCooldown <= 0) {
+        var heightGap = player.wy - e.wy;
+        if (heightGap > 50 && dist < 260) {
+          e.vy = WANDERER_JUMP_VEL;
+          e.onGround = false;
+          e.aiJumpCooldown = 700 + Math.random() * 600;
+        }
+      }
       // Enemy attacks ONLY when aggro'd, in range, and cooldown elapsed (and not frozen/stunned)
       if (!frozen && !stunned) e.aiAttackCooldown -= enemyDt;
-      if (e.aggro && dist < ATTACK_RANGE && e.aiAttackCooldown <= 0 && !frozen && !stunned) {
+      // Use 3D-ish range so they still throw when the player is up on a
+      // platform overhead within reasonable distance.
+      var attackHeightGap = Math.abs(player.wy - e.wy);
+      var attackDistSq = dist * dist + attackHeightGap * attackHeightGap;
+      if (e.aggro && attackDistSq < ATTACK_RANGE * ATTACK_RANGE && e.aiAttackCooldown <= 0 && !frozen && !stunned) {
         var ews = (e.skin && e.skin.weaponStyle) || 'sword';
         var enemyDmg = (e.cursedUntil && now < e.cursedUntil) ? 3 : 6;
+        // Aim the projectile toward the player's current position so an
+        // enemy on the ground can still land hits on a player above.
+        var aimDx = player.wx - e.wx;
+        var aimDy = (-player.wy - 50) - (-e.wy - 50); // both screen-space y
+        var aimLen = Math.sqrt(aimDx * aimDx + aimDy * aimDy) || 1;
+        var aimSpeed = WANDERER_PROJ_SPEED * 0.85;
         wandererProjectiles.push({
           wx: e.wx + e.facingDir * 30, wy: -e.wy - 50,
-          vx: e.facingDir * WANDERER_PROJ_SPEED * 0.85,
-          vy: 0, dmg: enemyDmg, owner: 'enemy', type: ews,
+          vx: (aimDx / aimLen) * aimSpeed,
+          vy: (aimDy / aimLen) * aimSpeed,
+          dmg: enemyDmg, owner: 'enemy', type: ews,
           color: (e.skin && e.skin.swordBlade) || '#ff5050',
           color2: (e.skin && e.skin.swordPommel) || '#cc1010',
           life: 2200, facingDir: e.facingDir
