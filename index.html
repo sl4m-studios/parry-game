@@ -7646,24 +7646,29 @@
     var now = performance.now();
     if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
-    // Fire a projectile in player's facing direction
+    // Only ranged weapons fire a projectile. Melee weapons (sword / axe /
+    // katana / scythe) just play the swing animation — they don't shoot.
     var ws = (player.skin && player.skin.weaponStyle) || 'sword';
-    var dmg = attackDamage({ chargeRatio: 0.4, skin: player.skin, isCounterAttack: false });
-    var px = player.wx + player.facingDir * 30;
-    var py = -player.wy - 50;
-    wandererProjectiles.push({
-      wx: px, wy: py,
-      vx: player.facingDir * WANDERER_PROJ_SPEED,
-      vy: 0,
-      dmg: dmg,
-      owner: 'player',
-      type: ws,
-      color: (player.skin && player.skin.swordBlade) || '#fff',
-      color2: (player.skin && player.skin.swordPommel) || '#cca860',
-      life: 2400,
-      facingDir: player.facingDir
-    });
-    // Brief attack animation: set phase = strike for sword swoosh visual
+    var isRanged = (ws === 'staff' || ws === 'bow');
+    if (isRanged) {
+      var dmg = attackDamage({ chargeRatio: 0.4, skin: player.skin, isCounterAttack: false });
+      var px = player.wx + player.facingDir * 30;
+      var py = -player.wy - 50;
+      wandererProjectiles.push({
+        wx: px, wy: py,
+        vx: player.facingDir * WANDERER_PROJ_SPEED,
+        vy: 0,
+        dmg: dmg,
+        owner: 'player',
+        type: ws,
+        color: (player.skin && player.skin.swordBlade) || '#fff',
+        color2: (player.skin && player.skin.swordPommel) || '#cca860',
+        life: 2400,
+        facingDir: player.facingDir
+      });
+    }
+    // Always play the swing animation (windup → strike) so melee weapons
+    // still feel like they're attacking even with no projectile.
     player.phase = 'strike';
     player.phaseStart = now;
     player.chargeRatio = 0.4;
@@ -7695,17 +7700,20 @@
     });
     if (shake > 0) shake = Math.max(0, shake - dt * 0.06);
 
-    // Walking phase advances with horizontal movement; settles when idle
+    // Walking phase advances with horizontal movement; settles when idle.
+    // vx is in px/ms (WANDERER_WALK_SPEED is 0.36) so the old threshold of
+    // > 5 was never true — the legs never animated. Use a tiny threshold
+    // and a much larger multiplier so the cycle is visible.
     var pvx = Math.abs(player.vx || 0);
-    if (pvx > 5 && player.onGround) {
-      player.walkPhase = (player.walkPhase || 0) + pvx * dt * 0.0009;
+    if (pvx > 0.05 && player.onGround) {
+      player.walkPhase = (player.walkPhase || 0) + pvx * dt * 0.03;
     } else {
       player.walkPhase = (player.walkPhase || 0) * 0.85;
     }
     wandererEnemies.forEach(function (en) {
       var evx = Math.abs(en.vx || 0);
-      if (evx > 5 && en.wy === 0) {
-        en.walkPhase = (en.walkPhase || 0) + evx * dt * 0.0009;
+      if (evx > 0.05 && en.wy === 0) {
+        en.walkPhase = (en.walkPhase || 0) + evx * dt * 0.03;
       } else {
         en.walkPhase = (en.walkPhase || 0) * 0.85;
       }
