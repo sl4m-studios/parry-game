@@ -7248,13 +7248,34 @@
       e.aggro = false;
       wandererEnemies.push(e);
     }
-    // Platforms — randomly placed within the section
-    for (var p = 0; p < 2; p++) {
-      var px = startX + 300 + p * 380 + Math.random() * 80;
-      var py = 70 + Math.random() * 60; // height above ground (positive = higher)
-      wandererPlatforms.push({ wx: px, wy: py, w: 90 + Math.random() * 60, h: 18 });
+    // Step-on obstacles — denser & with kind variety. All share the same
+    // {wx,wy,w,h} shape so the platform AABB collision handles them with no
+    // changes; only the renderer cares about `kind`.
+    // 4 wood platforms (the original style) at high jump heights.
+    for (var p = 0; p < 4; p++) {
+      var wpx = startX + 220 + p * 250 + Math.random() * 60;
+      var wpy = 70 + Math.random() * 70; // 70..140
+      wandererPlatforms.push({ kind: 'wood', wx: wpx, wy: wpy,
+        w: 80 + Math.random() * 60, h: 18 });
     }
-    wandererState.lastSpawnX = startX + 1000;
+    // 3 ground crates — small step-ups sitting on the floor.
+    var crateAnchors = [180, 420, 780];
+    for (var c = 0; c < crateAnchors.length; c++) {
+      var cpx = startX + crateAnchors[c] + (Math.random() * 80 - 40);
+      wandererPlatforms.push({ kind: 'crate', wx: cpx, wy: 0,
+        w: 42, h: 42 });
+    }
+    // 2 stones — chunkier mid-low blocks for rock-hopping between platforms.
+    for (var s = 0; s < 2; s++) {
+      var spx = startX + 320 + s * 320 + Math.random() * 60;
+      wandererPlatforms.push({ kind: 'stone', wx: spx, wy: 24 + Math.random() * 14,
+        w: 100 + Math.random() * 30, h: 24 });
+    }
+    // 1 stump — small round-ish ledge near the middle of the section.
+    wandererPlatforms.push({ kind: 'stump',
+      wx: startX + 540 + Math.random() * 60, wy: 50 + Math.random() * 12,
+      w: 48, h: 20 });
+    wandererState.lastSpawnX = startX + 700;
   }
 
   function tryWandererShield() {
@@ -7977,20 +7998,53 @@
       var sx = ((i * 220 - camX * 0.3) % (cssW + 220)) - 110;
       ctx.fillRect(sx, groundScreenY - 80, 80, 80);
     }
-    // Platforms
+    // Platforms / step-on obstacles. Branches on pl.kind for visuals;
+    // collision is shared and lives in the wanderer update tick.
     wandererPlatforms.forEach(function (pl) {
       var sx = pl.wx - camX - pl.w / 2;
       var sy = groundScreenY - pl.wy;
       if (sx + pl.w < 0 || sx > cssW) return;
-      // wood face
-      var grd = ctx.createLinearGradient(sx, sy, sx, sy + pl.h);
-      grd.addColorStop(0, '#8a5a30');
-      grd.addColorStop(1, '#3a1f10');
-      ctx.fillStyle = grd;
-      ctx.fillRect(sx, sy, pl.w, pl.h);
-      // edge
-      ctx.fillStyle = '#1a0a08';
-      ctx.fillRect(sx, sy, pl.w, 3);
+      var kind = pl.kind || 'wood';
+      if (kind === 'crate') {
+        ctx.fillStyle = '#a06030';
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        // top + bottom plank lines
+        ctx.fillStyle = '#5a3018';
+        ctx.fillRect(sx, sy, pl.w, 3);
+        ctx.fillRect(sx, sy + pl.h - 3, pl.w, 3);
+        // X cross-brace (two thin diagonals approximated with rects)
+        ctx.fillStyle = '#5a3018';
+        var bw = Math.max(2, Math.floor(pl.w * 0.06));
+        ctx.fillRect(sx + pl.w * 0.5 - bw / 2, sy + 4, bw, pl.h - 8);
+        ctx.fillRect(sx + 4, sy + pl.h * 0.5 - bw / 2, pl.w - 8, bw);
+      } else if (kind === 'stone') {
+        var sgrd = ctx.createLinearGradient(sx, sy, sx, sy + pl.h);
+        sgrd.addColorStop(0, '#7a7e85');
+        sgrd.addColorStop(1, '#3a3e44');
+        ctx.fillStyle = sgrd;
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        // top highlight
+        ctx.fillStyle = '#9da2aa';
+        ctx.fillRect(sx, sy, pl.w, 2);
+      } else if (kind === 'stump') {
+        // body
+        ctx.fillStyle = '#6a3f20';
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        // cut-log top ring
+        ctx.fillStyle = '#c89968';
+        ctx.fillRect(sx, sy, pl.w, 4);
+        ctx.fillStyle = '#8a5a30';
+        ctx.fillRect(sx + 4, sy + 2, pl.w - 8, 2);
+      } else {
+        // wood (default / legacy)
+        var grd = ctx.createLinearGradient(sx, sy, sx, sy + pl.h);
+        grd.addColorStop(0, '#8a5a30');
+        grd.addColorStop(1, '#3a1f10');
+        ctx.fillStyle = grd;
+        ctx.fillRect(sx, sy, pl.w, pl.h);
+        ctx.fillStyle = '#1a0a08';
+        ctx.fillRect(sx, sy, pl.w, 3);
+      }
     });
     // Enemies
     wandererEnemies.forEach(function (en) {
