@@ -878,7 +878,6 @@
     <button class="btn secondary" data-action="mode-survival">SURVIVAL</button>
     <button class="btn secondary" data-action="mode-local">LOCAL 2P</button>
     <button class="btn secondary" data-action="mode-wanderer">WANDERER</button>
-    <button class="btn secondary" data-action="mode-sf">STREET FIGHTER</button>
     <button class="btn secondary" data-action="open-skins"><span class="ico">🎨</span>SKINS</button>
     <button class="btn secondary" data-action="open-dailies"><span class="ico">📅</span>DAILIES</button>
     <button class="btn secondary" data-action="open-stats"><span class="ico">📊</span>STATS</button>
@@ -2142,14 +2141,6 @@
   ];
   var pendingBuild = null;
   var pendingMatchLauncher = null;
-  // Street Fighter mode round state
-  var sfState = null;
-  var SF_ROUNDS_TO_WIN = 2;
-  var SF_ROUND_TIME_MS = 45000;       // 45s per round
-  var SF_ANNOUNCE_MS = 2200;          // ROUND N
-  var SF_FIGHT_MS = 1100;             // FIGHT!
-  var SF_KO_MS = 1600;                // K.O.!
-  var SF_INTERMISSION_MS = 1800;
   function getBuildMods(f) {
     if (f && f.draftBuild && f.draftBuild.mods) return f.draftBuild.mods;
     return {};
@@ -3806,7 +3797,6 @@
   function tryPlayerAttack(chargeRatio) {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
-    if (sfBlocked()) return;
     var now = performance.now();
     if (player.hp <= 0) return;
     if (now < player.stunUntil) {
@@ -3829,7 +3819,6 @@
   function tryPlayerShield() {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
-    if (sfBlocked()) return;
     var now = performance.now();
     if (now < player.shieldCooldownUntil) return;
     if (player.shieldUpUntil > now) return;
@@ -3842,7 +3831,6 @@
   function tryPlayerDodge() {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
-    if (sfBlocked()) return;
     var now = performance.now();
     if (now < player.dodgeCooldownUntil) return;
     if (player.hp <= 0) return;
@@ -3870,13 +3858,9 @@
     addPopup(f, 'DODGE', '#a0e8ff');
   }
 
-  function sfBlocked() {
-    return gameMode === 'sf' && sfState && sfState.phase !== 'fight';
-  }
   function tryPlayerStepBack() {
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
-    if (sfBlocked()) return;
     var now = performance.now();
     if (now < player.dashBackCooldownUntil) return;
     if (player.range === 1) return; // already back
@@ -3890,7 +3874,6 @@
     if (!player) return;
     if (gameState !== STATE_PLAYING) return;
     if (gameMode === 'online' || gameMode === 'wanderer' || gameMode === 'tutorial') return;
-    if (gameMode === 'sf' && sfState && sfState.phase !== 'fight') return;
     var now = performance.now();
     if (player.hp <= 0) return;
     if (now < player.stunUntil) { addPopup(player, 'STUNNED', '#888'); return; }
@@ -4256,10 +4239,6 @@
     if (gameMode === 'wanderer' && f.wx !== undefined && wandererState) {
       return { x: f.wx - wandererState.camX, y: groundY - (f.wy || 0) - 42 };
     }
-    // SF arena: fighters live in world coordinates (no scrolling).
-    if (gameMode === 'sf' && f.wx !== undefined) {
-      return { x: f.wx, y: groundY - (f.wy || 0) - 42 };
-    }
     var baseX = f.side === 'player' ? cssW * 0.28 : cssW * 0.72;
     var facing = f.side === 'player' ? 1 : -1;
     return { x: baseX - facing * (f.curXOffset || 0), y: groundY };
@@ -4619,8 +4598,8 @@
 
   window.addEventListener('keydown', function (e) {
     if (gameState !== STATE_PLAYING) return;
-    // Wanderer / SF mode: WASD movement + Z attack + skills
-    if (gameMode === 'wanderer' || gameMode === 'sf') {
+    // Wanderer mode: WASD movement + Z attack + X shield
+    if (gameMode === 'wanderer') {
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') { e.preventDefault(); wandererInput.left = true; return; }
       if (e.code === 'KeyD' || e.code === 'ArrowRight') { e.preventDefault(); wandererInput.right = true; return; }
       if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); wandererInput.jump = true; return; }
@@ -4681,7 +4660,7 @@
     }
   });
   window.addEventListener('keyup', function (e) {
-    if (gameMode === 'wanderer' || gameMode === 'sf') {
+    if (gameMode === 'wanderer') {
       if (e.code === 'KeyA' || e.code === 'ArrowLeft') { wandererInput.left = false; return; }
       if (e.code === 'KeyD' || e.code === 'ArrowRight') { wandererInput.right = false; return; }
       if (e.code === 'KeyW' || e.code === 'Space' || e.code === 'ArrowUp') { wandererInput.jump = false; return; }
@@ -4790,11 +4769,7 @@
     }
 
     var elapsed = now - matchStartTime;
-    if (gameMode === 'sf') {
-      sfTick(now);
-      tickSfArena(now, dt);
-      return; // SF arena handles all of its own physics + AI
-    } else if (gameMode !== 'tutorial' && elapsed >= MATCH_TIME_MS) {
+    if (gameMode !== 'tutorial' && elapsed >= MATCH_TIME_MS) {
       endMatch(player.hp >= enemy.hp);
       return;
     }
@@ -6599,41 +6574,13 @@
       drawHpBar(cssW - 20 - barW, 20, barW, 22, enemy.hp / (enemy.maxHp || MAX_HP), '#ff5d7e', rivalLabel, true);
       drawStreakDots(20, 50, player.parryStreak, '#fff', false);
       drawStreakDots(cssW - 20 - 90, 50, enemy.parryStreak, '#fff', true);
-      // SF mode: draw round-win pips next to HP bars + announce text + round timer
-      if (gameMode === 'sf' && sfState) {
-        drawSfPips(20, 46, sfState.playerRounds, '#ffd34d', false);
-        drawSfPips(cssW - 20 - 36, 46, sfState.enemyRounds, '#ffd34d', true);
-        // Round timer (overrides default match timer)
-        var roundElapsed = sfState.phase === 'fight' ? (now - sfState.roundStartAt) : 0;
-        var sfRem = Math.max(0, SF_ROUND_TIME_MS - roundElapsed);
-        ctx.fillStyle = '#fff';
-        ctx.font = '900 36px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(String(Math.ceil(sfRem / 1000)), cssW / 2, 14);
-        // Announce text
-        if (sfState.announceText) {
-          var aFrac = (sfState.announceUntil - now) / SF_ANNOUNCE_MS;
-          if (aFrac < 0) aFrac = 0; if (aFrac > 1) aFrac = 1;
-          var alpha = Math.min(1, 0.4 + aFrac * 0.8);
-          var fontPx = sfState.announceText === 'FIGHT!' ? 96 : 72;
-          var col = sfState.announceText === 'FIGHT!' ? '#ff5060' : '#ffd34d';
-          ctx.fillStyle = 'rgba(0,0,0,' + (alpha * 0.55) + ')';
-          ctx.font = '900 ' + fontPx + 'px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(sfState.announceText, cssW / 2 + 4, cssH / 2 + 4);
-          ctx.fillStyle = col;
-          ctx.globalAlpha = alpha;
-          ctx.fillText(sfState.announceText, cssW / 2, cssH / 2);
-          ctx.globalAlpha = 1;
-        }
-      }
     } else {
       // Tutorial: only show player's parry streak (centered low for visibility)
       var sx = (cssW - PARRY_FOR_SUPER * 28) / 2;
       drawStreakDots(sx, cssH - 90, player.parryStreak, '#ffd34d', false);
     }
 
-    if (gameMode !== 'tutorial' && gameMode !== 'sf') {
+    if (gameMode !== 'tutorial') {
       var remaining = Math.max(0, MATCH_TIME_MS - (now - matchStartTime));
       var sec = Math.ceil(remaining / 1000);
       ctx.fillStyle = '#fff';
@@ -6701,27 +6648,6 @@
       ctx.fill();
     }
   }
-  function drawSfPips(x, y, won, color, alignRight) {
-    var size = 14;
-    for (var i = 0; i < SF_ROUNDS_TO_WIN; i++) {
-      var cx = alignRight ? x - i * (size + 6) : x + i * (size + 6);
-      ctx.beginPath();
-      ctx.rect(cx, y, size, size);
-      if (i < won) {
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.10)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-    }
-  }
 
   function render(now) {
     ctx.save();
@@ -6739,27 +6665,6 @@
       drawFighter(enemy, now);
       drawFighter(player, now);
       drawProjectiles(now);
-      // SF arena: draw wanderer-style projectiles (skills/ranged) too
-      if (gameMode === 'sf' && wandererProjectiles && wandererProjectiles.length) {
-        var groundScreenY = cssH * 0.70;
-        wandererProjectiles.forEach(function (pr) {
-          var sx = pr.wx;
-          var sy = groundScreenY + pr.wy;
-          if (pr.trailBuf && pr.trailBuf.length) {
-            var n = pr.trailBuf.length;
-            for (var ti = 0; ti < n; ti++) {
-              var t = pr.trailBuf[ti];
-              var tsx = t.wx;
-              var tsy = groundScreenY + t.wy;
-              var k = (ti + 1) / (n + 1);
-              ctx.fillStyle = hexA(pr.color || '#fff', 0.18 + 0.32 * k);
-              var rr = Math.max(2, ((pr.radius || 12) * 0.55) * k);
-              ctx.beginPath(); ctx.arc(tsx, tsy, rr, 0, Math.PI * 2); ctx.fill();
-            }
-          }
-          drawWandererProjectile(pr, sx, sy);
-        });
-      }
       drawSparks();
       drawFlashes();
       drawPopups();
@@ -6841,11 +6746,7 @@
       var elapsed = now - killcamStart;
       if (elapsed >= KILLCAM_DURATION_MS) {
         killcamPending = false;
-        if (gameMode === 'sf' && sfState) {
-          sfHandleRoundEnd(killcamWin, 'ko');
-        } else {
-          endMatch(killcamWin);
-        }
+        endMatch(killcamWin);
       } else {
         update(now, dt * KILLCAM_SLOW);
       }
@@ -7133,35 +7034,8 @@
     } else if (mode === 'local') {
       // Default: AI controls until P2 input arrives; P2 takes over momentarily
       enemy.nextAttackAt = now + 1500;
-    } else if (mode === 'sf') {
-      enemy.nextAttackAt = now + 1500;
     } else {
       enemy.nextAttackAt = Infinity; // net-driven
-    }
-    // Street Fighter mode: init round state, world coords, and freeze action until FIGHT!
-    if (mode === 'sf') {
-      sfState = {
-        playerRounds: 0,
-        enemyRounds: 0,
-        round: 1,
-        announceText: 'ROUND 1',
-        announceUntil: now + SF_ANNOUNCE_MS,
-        fightAt: now + SF_ANNOUNCE_MS,
-        intermissionUntil: now + SF_ANNOUNCE_MS,
-        phase: 'announce',
-        roundStartAt: now + SF_ANNOUNCE_MS,
-        koAt: 0
-      };
-      enemy.nextAttackAt = Infinity; // SF AI drives its own attacks
-      sfState.playerMaxHp = player.maxHp;
-      sfState.enemyMaxHp = enemy.maxHp;
-      // World setup
-      wandererState = { camX: 0, killed: 0, gameOver: false };
-      wandererProjectiles = [];
-      wandererInput.left = false; wandererInput.right = false; wandererInput.jump = false;
-      sfArenaInitFighters(now);
-    } else {
-      sfState = null;
     }
     playerLastAction = null;
     flashes.length = 0; popups.length = 0; sparks.length = 0;
@@ -7198,12 +7072,7 @@
       // Host also broadcasts arena choice
       if (net.isHost) netSend({ type: 'arena', id: currentArena.id });
     }
-    if (mode === 'sf') {
-      // SF arena uses keyboard controls (WASD + Z + X + Q/E/R/F/G); hide duel buttons.
-      document.getElementById('actionBtns').classList.add('hidden');
-    } else {
-      document.getElementById('actionBtns').classList.remove('hidden');
-    }
+    document.getElementById('actionBtns').classList.remove('hidden');
   }
   var pendingArenaChoice = null;
 
@@ -7215,300 +7084,6 @@
     playEnd(playerWon);
     document.getElementById('actionBtns').classList.add('hidden');
     showGameOver(playerWon);
-  }
-
-  // ---------- Street Fighter mode (free movement + 1v1 AI) ----------
-  function sfArenaInitFighters(now) {
-    var lx = 80, rx = cssW - 80;
-    if (rx < lx + 200) rx = lx + 200;
-    player.wx = lx + (rx - lx) * 0.25;
-    player.wy = 0; player.vx = 0; player.vy = 0;
-    player.onGround = true; player.facingDir = 1; player.walkPhase = 0;
-    enemy.wx = lx + (rx - lx) * 0.75;
-    enemy.wy = 0; enemy.vx = 0; enemy.vy = 0;
-    enemy.onGround = true; enemy.facingDir = -1; enemy.walkPhase = 0;
-    enemy.aiAttackCooldown = 1500;
-    enemy.aiJumpCooldown = 0;
-  }
-  function sfArenaBounds() {
-    var lx = 80, rx = cssW - 80;
-    if (rx < lx + 200) rx = lx + 200;
-    return { lx: lx, rx: rx };
-  }
-  function sfFighterMelee(attacker, defender, now, dmg) {
-    if (defender.shieldUpUntil > now) {
-      defender.shieldUpUntil = 0; defender.shieldRaiseT = 0;
-      addPopup(defender, 'BLOCK', '#9ed4ff');
-      playWhiff();
-      return false;
-    }
-    if (defender.dodgeUntil > now) {
-      addPopup(attacker, 'WHIFF', '#888');
-      playWhiff();
-      return false;
-    }
-    defender.hp = Math.max(0, defender.hp - dmg);
-    defender.hurtFlash = 1;
-    addPopup(defender, '-' + dmg, '#ff7070');
-    addFlash(defender, '#ff5555', 80);
-    shake = Math.max(shake, 10);
-    playHit();
-    // Knockback (push defender away from attacker)
-    var dir = (defender.wx > attacker.wx) ? 1 : -1;
-    defender.vx += dir * 0.18;
-    if (defender.hp <= 0) checkEnd();
-    return true;
-  }
-  function sfEnemyAi(now, dt) {
-    if (!enemy || enemy.hp <= 0) return;
-    if (enemy.stunUntil && now < enemy.stunUntil) { enemy.vx = 0; return; }
-    enemy.aiAttackCooldown -= dt;
-    enemy.aiJumpCooldown -= dt;
-    var dx = player.wx - enemy.wx;
-    var dist = Math.abs(dx);
-    enemy.facingDir = dx > 0 ? 1 : -1;
-    // Walk toward player when out of melee range
-    if (dist > 130) enemy.vx = (dx > 0 ? 1 : -1) * WANDERER_WALK_SPEED * 0.7;
-    else if (dist < 80) enemy.vx = (dx > 0 ? -1 : 1) * WANDERER_WALK_SPEED * 0.4;
-    else enemy.vx = 0;
-    // Update walk anim
-    if (Math.abs(enemy.vx) > 0.05 && enemy.onGround) {
-      enemy.walkPhase = (enemy.walkPhase || 0) + Math.abs(enemy.vx) * dt * 0.03;
-    } else {
-      enemy.walkPhase = (enemy.walkPhase || 0) * 0.85;
-    }
-    // Jump if player above
-    if (enemy.onGround && enemy.aiJumpCooldown <= 0) {
-      if ((player.wy - enemy.wy) > 60 && dist < 280) {
-        enemy.vy = WANDERER_JUMP_VEL;
-        enemy.onGround = false;
-        enemy.aiJumpCooldown = 800 + Math.random() * 600;
-      } else if (Math.random() < 0.005 && dist < 200) {
-        // Random hop for unpredictability
-        enemy.vy = WANDERER_JUMP_VEL * 0.85;
-        enemy.onGround = false;
-        enemy.aiJumpCooldown = 1200 + Math.random() * 800;
-      }
-    }
-    // Attack
-    if (enemy.aiAttackCooldown <= 0 && enemy.phase === 'idle' || enemy.aiAttackCooldown <= 0) {
-      var ws = (enemy.skin && enemy.skin.weaponStyle) || 'sword';
-      var isRanged = (ws === 'staff' || ws === 'bow');
-      if (dist < 150 && Math.abs(player.wy - enemy.wy) < 100) {
-        // Melee swing — use real enemy fighter for type/skin scaling
-        var oR = enemy.chargeRatio, oK = enemy.attackKind, oH = enemy.isHeavyAttack;
-        enemy.chargeRatio = 0.4; enemy.attackKind = 'light'; enemy.isHeavyAttack = false;
-        var dmg = attackDamage(enemy);
-        enemy.chargeRatio = oR; enemy.attackKind = oK; enemy.isHeavyAttack = oH;
-        sfFighterMelee(enemy, player, now, dmg);
-        enemy.phase = 'strike'; enemy.phaseStart = now;
-        enemy.chargeRatio = 0.4; enemy.isHeavyAttack = false; enemy.strikeResolved = true;
-        enemy.attackCooldownUntil = now + 350;
-        enemy.aiAttackCooldown = 900 + Math.random() * 700;
-      } else if (isRanged && dist < 500) {
-        wandererProjectiles.push({
-          wx: enemy.wx + enemy.facingDir * 30, wy: -enemy.wy - 50,
-          vx: enemy.facingDir * WANDERER_PROJ_SPEED * 0.85, vy: 0,
-          dmg: 8, owner: 'enemy', type: ws,
-          color: (enemy.skin && enemy.skin.swordBlade) || '#ff5050',
-          color2: (enemy.skin && enemy.skin.swordPommel) || '#cc1010',
-          life: 2400, facingDir: enemy.facingDir
-        });
-        enemy.aiAttackCooldown = 1200 + Math.random() * 600;
-      } else {
-        enemy.aiAttackCooldown = 200; // close in
-      }
-    }
-  }
-  function tickSfArena(now, dt) {
-    if (!sfState) return;
-    if (sfState.phase !== 'fight') {
-      // During announce/intermission: no movement, just decay flashes
-      if (player.hurtFlash > 0) player.hurtFlash = Math.max(0, player.hurtFlash - dt * 0.005);
-      if (enemy.hurtFlash > 0) enemy.hurtFlash = Math.max(0, enemy.hurtFlash - dt * 0.005);
-      return;
-    }
-    // Decay shield raise / hurt flash like wanderer does
-    [player, enemy].forEach(function (f) {
-      if (f.shieldRaiseT > 0) {
-        var srE = now - (f.shieldRaiseAt || now);
-        f.shieldRaiseT = Math.max(0, 1 - srE / SHIELD_UP_MS);
-      }
-      if (f.hurtFlash > 0) f.hurtFlash = Math.max(0, f.hurtFlash - dt * 0.005);
-    });
-    if (shake > 0) shake = Math.max(0, shake - dt * 0.06);
-    // Player movement input
-    var moveX = 0;
-    if (wandererInput.left)  { moveX -= 1; player.facingDir = -1; }
-    if (wandererInput.right) { moveX += 1; player.facingDir = 1; }
-    var pMods2 = getBuildMods(player);
-    var walkMul = (pMods2.walkSpeedMult || 1);
-    player.vx = moveX * WANDERER_WALK_SPEED * walkMul;
-    if (wandererInput.jump && player.onGround) {
-      player.vy = WANDERER_JUMP_VEL;
-      player.onGround = false;
-    }
-    // Player walk anim phase
-    var pvx2 = Math.abs(player.vx || 0);
-    if (pvx2 > 0.05 && player.onGround) {
-      player.walkPhase = (player.walkPhase || 0) + pvx2 * dt * 0.03;
-    } else {
-      player.walkPhase = (player.walkPhase || 0) * 0.85;
-    }
-    // AI
-    sfEnemyAi(now, dt);
-    // Physics for both
-    var b = sfArenaBounds();
-    [player, enemy].forEach(function (f) {
-      f.vy += WANDERER_GRAVITY * dt;
-      f.wx += f.vx * dt;
-      f.wy -= f.vy * dt;
-      // Friction on horizontal velocity from knockback
-      if (f === enemy && Math.abs(f.vx) > WANDERER_WALK_SPEED) {
-        f.vx *= 0.92;
-      }
-      // Walls
-      if (f.wx < b.lx) { f.wx = b.lx; if (f.vx < 0) f.vx = 0; }
-      if (f.wx > b.rx) { f.wx = b.rx; if (f.vx > 0) f.vx = 0; }
-      // Ground
-      if (f.wy <= 0) { f.wy = 0; f.vy = 0; f.onGround = true; }
-      else f.onGround = false;
-      // Soft body collision: don't pass through opponent
-    });
-    // Push apart if overlapping (simple)
-    var bodyR = 32;
-    var cdx = player.wx - enemy.wx;
-    if (Math.abs(cdx) < bodyR && Math.abs(player.wy - enemy.wy) < 60) {
-      var push = (bodyR - Math.abs(cdx)) / 2 + 0.5;
-      var sgn = cdx >= 0 ? 1 : -1;
-      player.wx = Math.min(b.rx, Math.max(b.lx, player.wx + sgn * push));
-      enemy.wx  = Math.min(b.rx, Math.max(b.lx, enemy.wx  - sgn * push));
-    }
-    // Phase progression for both fighters: strike -> recovery -> idle.
-    // Without this, the weapon visual freezes mid-followthrough.
-    [player, enemy].forEach(function (f) {
-      var pe = now - f.phaseStart;
-      if (f.phase === 'strike' && pe >= attackStrikeMs(f)) {
-        f.phase = 'recovery';
-        f.phaseStart = now;
-      } else if (f.phase === 'recovery' && pe >= attackRecoveryMs(f)) {
-        f.phase = 'idle';
-        f.phaseStart = now;
-        f.attackCooldownUntil = Math.max(f.attackCooldownUntil || 0, now);
-      }
-    });
-    // Tick projectiles vs both fighters
-    sfTickArenaProjectiles(now, dt);
-  }
-  function sfTickArenaProjectiles(now, dt) {
-    for (var pi = wandererProjectiles.length - 1; pi >= 0; pi--) {
-      var pr = wandererProjectiles[pi];
-      pr.wx += pr.vx * dt;
-      pr.wy += pr.vy * dt;
-      pr.life -= dt;
-      if (pr.life <= 0 || pr.wx < -100 || pr.wx > cssW + 200) {
-        wandererProjectiles.splice(pi, 1);
-        continue;
-      }
-      // Hit detection
-      var target = (pr.owner === 'player') ? enemy : player;
-      var radius = pr.radius || 22;
-      var tdx = target.wx - pr.wx;
-      var tdy = (-target.wy - 50) - pr.wy;
-      if (tdx * tdx + tdy * tdy <= radius * radius) {
-        if (target.shieldUpUntil > now) {
-          target.shieldUpUntil = 0; target.shieldRaiseT = 0;
-          addPopup(target, 'BLOCK', '#9ed4ff');
-        } else if (target.dodgeUntil > now) {
-          addPopup(target, 'WHIFF', '#888');
-        } else {
-          var pdmg = pr.dmg || 8;
-          target.hp = Math.max(0, target.hp - pdmg);
-          target.hurtFlash = 1;
-          addPopup(target, '-' + pdmg, pr.owner === 'player' ? '#ff7070' : '#ffd060');
-          addFlash(target, pr.color || '#fff', 90);
-          shake = Math.max(shake, 8);
-          playHit();
-          if (target.hp <= 0) checkEnd();
-        }
-        wandererProjectiles.splice(pi, 1);
-      }
-    }
-  }
-  function sfStartRound(now) {
-    if (!sfState) return;
-    // Reset both fighters to round-start state
-    [player, enemy].forEach(function (f) {
-      if (!f) return;
-      f.hp = f.side === 'player' ? sfState.playerMaxHp : sfState.enemyMaxHp;
-      f.phase = 'idle'; f.phaseStart = now;
-      f.strikeResolved = false;
-      f.parryStreak = 0;
-      f.walkOffset = 0; f.curXOffset = 0;
-      f.shieldUpUntil = 0; f.shieldRaiseT = 0; f.shieldCooldownUntil = 0;
-      f.dodgeUntil = 0; f.dodgeCooldownUntil = 0;
-      f.attackCooldownUntil = 0; f.stunUntil = 0;
-      f.range = 0; f.rangeUntil = 0;
-      f.burnUntil = 0; f.poisonUntil = 0; f.bleedUntil = 0; f.slowUntil = 0;
-      f.counterUntil = 0; f.isCounterAttack = false; f.isHeavyAttack = false;
-      f.attackKind = 'light';
-    });
-    flashes.length = 0; popups.length = 0; sparks.length = 0;
-    projectiles.length = 0; hazards.length = 0; powerup = null;
-    shake = 0; bgFlash = 0;
-    // Reset arena world coords between rounds
-    wandererProjectiles = [];
-    wandererInput.left = false; wandererInput.right = false; wandererInput.jump = false;
-    sfArenaInitFighters(now);
-    sfState.announceText = 'ROUND ' + sfState.round;
-    sfState.announceUntil = now + SF_ANNOUNCE_MS;
-    sfState.phase = 'announce';
-    sfState.roundStartAt = now + SF_ANNOUNCE_MS;
-    enemy.nextAttackAt = Infinity;
-    player.nextAttackAt = Infinity;
-  }
-  function sfHandleRoundEnd(playerWon, reason) {
-    if (!sfState) return;
-    if (playerWon === null) {
-      // Draw — both KO'd. Award round to neither, just bump round count.
-    } else if (playerWon) sfState.playerRounds += 1;
-    else sfState.enemyRounds += 1;
-    // Match end check
-    if (sfState.playerRounds >= SF_ROUNDS_TO_WIN || sfState.enemyRounds >= SF_ROUNDS_TO_WIN) {
-      var matchWon = sfState.playerRounds > sfState.enemyRounds;
-      endMatch(matchWon, reason === 'time' ? 'Decided on time.' : '');
-      return;
-    }
-    sfState.round += 1;
-    sfState.phase = 'intermission';
-    sfState.announceText = playerWon === null ? 'DOUBLE K.O.!' : (playerWon ? 'YOU WIN ROUND' : 'AI WINS ROUND');
-    sfState.announceUntil = performance.now() + SF_INTERMISSION_MS;
-    setTimeout(function () {
-      if (gameState === STATE_PLAYING && sfState) sfStartRound(performance.now());
-    }, SF_INTERMISSION_MS);
-  }
-  function sfTick(now) {
-    if (!sfState) return;
-    // Drive ROUND -> FIGHT transition
-    if (sfState.phase === 'announce' && now >= sfState.announceUntil) {
-      sfState.phase = 'fight-announce';
-      sfState.announceText = 'FIGHT!';
-      sfState.announceUntil = now + SF_FIGHT_MS;
-      sfState.roundStartAt = now;
-    } else if (sfState.phase === 'fight-announce' && now >= sfState.announceUntil) {
-      sfState.phase = 'fight';
-      sfState.announceText = '';
-    }
-    // Round time-up
-    if (sfState.phase === 'fight' && (now - sfState.roundStartAt) >= SF_ROUND_TIME_MS) {
-      var pFrac = player.hp / (sfState.playerMaxHp || MAX_HP);
-      var eFrac = enemy.hp / (sfState.enemyMaxHp || MAX_HP);
-      var won = pFrac > eFrac ? true : (eFrac > pFrac ? false : null);
-      sfState.phase = 'time-up';
-      sfState.announceText = 'TIME UP';
-      sfState.announceUntil = now + 1200;
-      setTimeout(function () { sfHandleRoundEnd(won, 'time'); }, 1100);
-    }
   }
 
   // ---------- Screens ----------
@@ -7876,65 +7451,8 @@
     wandererState.lastSpawnX = startX + 700;
   }
 
-  function sfPlayerAttack(now) {
-    var ws = (player.skin && player.skin.weaponStyle) || 'sword';
-    var isRanged = (ws === 'staff' || ws === 'bow');
-    // Compute attack damage using the real player fighter so draftBuild + skinBuff apply
-    var origRatio = player.chargeRatio, origKind = player.attackKind, origHeavy = player.isHeavyAttack;
-    player.chargeRatio = 0.4; player.attackKind = 'light'; player.isHeavyAttack = false;
-    var baseDmg = attackDamage(player);
-    player.chargeRatio = origRatio; player.attackKind = origKind; player.isHeavyAttack = origHeavy;
-    if (isRanged) {
-      wandererProjectiles.push({
-        wx: player.wx + player.facingDir * 30, wy: -player.wy - 50,
-        vx: player.facingDir * WANDERER_PROJ_SPEED, vy: 0,
-        dmg: baseDmg, owner: 'player', type: ws,
-        color: (player.skin && player.skin.swordBlade) || '#fff',
-        color2: (player.skin && player.skin.swordPommel) || '#cca860',
-        life: 2400, facingDir: player.facingDir
-      });
-    } else {
-      // Melee arc against SF enemy
-      var meleeRange = 160;
-      var meleeVert = 95;
-      var sdx = (enemy.wx - player.wx) * player.facingDir;
-      var sdy = (enemy.wy || 0) - (player.wy || 0);
-      if (sdx >= -10 && sdx <= meleeRange && Math.abs(sdy) <= meleeVert && enemy.hp > 0) {
-        if (enemy.shieldUpUntil > now) {
-          // Shield blocks
-          enemy.shieldUpUntil = 0; enemy.shieldRaiseT = 0;
-          addPopup(enemy, 'BLOCK', '#9ed4ff');
-          playWhiff();
-        } else if (enemy.dodgeUntil > now) {
-          addPopup(player, 'WHIFF', '#888');
-          playWhiff();
-        } else {
-          var mdmg = Math.round(baseDmg);
-          if (cheats.oneShot) mdmg = 9999;
-          enemy.hp = Math.max(0, enemy.hp - mdmg);
-          enemy.hurtFlash = 1;
-          addPopup(enemy, '-' + mdmg, '#ff7070');
-          addFlash(enemy, '#ff5555', 80);
-          shake = Math.max(shake, 10);
-          playHit();
-          // Knockback in world coords
-          enemy.vx += player.facingDir * 0.18;
-          if (enemy.hp <= 0) checkEnd();
-        }
-      }
-    }
-    player.phase = 'strike'; player.phaseStart = now;
-    player.chargeRatio = 0.4; player.isHeavyAttack = false; player.strikeResolved = true;
-    player.attackCooldownUntil = now + 350;
-    if (player.skin && player.skin.type) {
-      if (!player.lastBarkAt || now - player.lastBarkAt > 220) {
-        playBark(player.skin.type); player.lastBarkAt = now;
-      }
-    }
-  }
   function tryWandererShield() {
     if (!player || gameState !== STATE_PLAYING) return;
-    if (gameMode === 'sf' && sfBlocked()) return;
     var now = performance.now();
     if (now < player.shieldCooldownUntil) return;
     if (player.shieldUpUntil > now) return;
@@ -7943,12 +7461,9 @@
 
   function tryWandererAttack() {
     if (!player || gameState !== STATE_PLAYING) return;
-    if (gameMode === 'sf' && sfBlocked()) return;
     var now = performance.now();
     if (now < player.attackCooldownUntil) return;
     if (player.hp <= 0) return;
-    // SF arena: do focused 1v1 melee against the SF enemy (not wandererEnemies).
-    if (gameMode === 'sf') { sfPlayerAttack(now); return; }
     // Only ranged weapons fire a projectile. Melee weapons (sword / axe /
     // katana / scythe) instead deal damage in a short arc in front of the
     // player when they swing — no projectile flies out.
@@ -8729,7 +8244,6 @@
   }
   function goToMode() {
     gameState = STATE_MENU_MODE;
-    sfState = null;
     hideGameUi();
     showScreen('mode');
     updateModeRankWidget();
@@ -9417,8 +8931,6 @@
         } else if (gameMode === 'online' && net.connected) {
           netCleanup();
           startMatchmaking();
-        } else if (gameMode === 'sf') {
-          openDraft(function () { startMatch('sf'); });
         } else {
           openDraft(function () { startMatch('ai'); });
         }
@@ -9492,9 +9004,6 @@
         break;
       case 'mode-local':
         openDraft(function () { startMatch('local'); });
-        break;
-      case 'mode-sf':
-        openDraft(function () { startMatch('sf'); });
         break;
       case 'mode-wanderer':
         startWanderer();
